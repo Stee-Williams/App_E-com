@@ -9,6 +9,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Service\JsonSerializer;
+use App\Service\EmailService;
 use App\Service\MotDePasseService;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -20,6 +21,7 @@ class AuthController extends ApiController
         private readonly EntityManagerInterface $em,
         private readonly UtilisateurRepository $utilisateurRepository,
         private readonly MotDePasseService $motDePasseService,
+        private readonly EmailService $emailService,
     ) {
         parent::__construct($serializer);
     }
@@ -51,6 +53,7 @@ class AuthController extends ApiController
 
         $this->em->persist($utilisateur);
         $this->em->flush();
+        $this->emailService->envoyerBienvenue($utilisateur);
 
         return $this->json([
             'jeton' => $utilisateur->getJetonApi(),
@@ -101,6 +104,7 @@ class AuthController extends ApiController
             $utilisateur->setJetonReinitialisation(bin2hex(random_bytes(32)));
             $utilisateur->setExpirationJetonReinitialisation(new \DateTimeImmutable('+1 hour'));
             $this->em->flush();
+            $this->emailService->envoyerReinitialisationMotDePasse($utilisateur);
         }
 
         return $this->json(['message' => 'Si cet email existe, un lien de réinitialisation a été envoyé.']);

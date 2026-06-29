@@ -31,5 +31,11 @@ services:
         bind:
             $projectDir: '%kernel.project_dir%'
 
+    App\Service\EmailService:
+        bind:
+            $mailFromAddress: '%env(string:MAIL_FROM_ADDRESS)%'
+            $mailFromName: '%env(string:MAIL_FROM_NAME)%'
+            $frontendUrl: '%env(string:APP_FRONTEND_URL)%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

@@ -6,6 +6,7 @@ use App\Entity\Commande;
 use App\Entity\VarianteProduit;
 use App\Repository\CommandeRepository;
 use App\Service\CommandeService;
+use App\Service\EmailService;
 use App\Service\NotificationService;
 use App\Service\Paginateur;
 use Doctrine\ORM\EntityManagerInterface;
@@ -24,6 +25,7 @@ class CommandeController extends ApiController
         private readonly CommandeRepository $commandeRepository,
         private readonly CommandeService $commandeService,
         private readonly NotificationService $notificationService,
+        private readonly EmailService $emailService,
         private readonly Paginateur $paginateur,
     ) {
         parent::__construct($serializer);
@@ -90,6 +92,8 @@ class CommandeController extends ApiController
             return $this->jsonErreur($e->getMessage());
         }
 
+        $this->emailService->envoyerConfirmationCommande($commande);
+
         return $this->json([
             'commande' => $this->serializer->normalize($commande, ['commande:lecture', 'produit:lecture']),
             'jetonSuivi' => $commande->getJetonSuivi(),
@@ -144,6 +148,8 @@ class CommandeController extends ApiController
         } catch (\InvalidArgumentException $e) {
             return $this->jsonErreur($e->getMessage());
         }
+
+        $this->emailService->envoyerConfirmationCommande($commande);
 
         return $this->jsonData($commande, ['commande:lecture', 'produit:lecture', 'adresse:lecture'], Response::HTTP_CREATED);
     }
