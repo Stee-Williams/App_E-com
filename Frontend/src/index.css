@@ -1,0 +1,167 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Violet indigo — identité NovaShop */
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+
+  /* Light mode — contrastes adoucis, confort visuel */
+  --color-page: #e9edf3;
+  --color-surface: #f4f6f9;
+  --color-surface-muted: #e3e8ef;
+  --color-surface-inset: #d9e0e9;
+  --color-ink: #3d4f63;
+  --color-heading: #2f3d4d;
+  --color-muted: #6d7d90;
+  --color-placeholder: #8d9aab;
+  --color-border: #cdd5df;
+  --color-border-hover: #b8abd8;
+  --color-accent: #6f5dd4;
+  --color-price: #5f51c9;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --color-page: #080d17;
+    --color-surface: #121a2b;
+    --color-surface-muted: #1a2438;
+    --color-surface-inset: #0d1422;
+    --color-ink: #e8edf5;
+    --color-heading: #f1f5f9;
+    --color-muted: #8b9cb3;
+    --color-placeholder: #5c6b82;
+    --color-border: #243044;
+    --color-border-hover: #4c3d8f;
+    --color-accent: #a78bfa;
+    --color-price: #c4b5fd;
+  }
+
+  body {
+    @apply bg-page text-ink font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--color-heading);
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-800;
+  }
+
+  .dark ::selection {
+    @apply bg-brand-800 text-brand-100;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-600/15 transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2 focus-visible:ring-offset-page disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-page;
+  }
+
+  .input-field,
+  .select-field {
+    @apply h-10 w-full rounded-xl border border-border bg-surface-muted px-4 py-2 text-sm text-ink outline-none transition placeholder:text-placeholder focus:border-brand-400 focus:bg-surface focus:ring-2 focus:ring-brand-200/80;
+  }
+
+  .dark .input-field,
+  .dark .select-field {
+    @apply bg-surface focus:border-brand-500 focus:bg-surface focus:ring-brand-900/50;
+  }
+
+  .select-field {
+    @apply cursor-pointer appearance-none bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238d9aab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+
+  .dark .select-field {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235c6b82' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+
+  .card-hover {
+    @apply rounded-2xl border border-border bg-surface transition hover:-translate-y-0.5 hover:border-border-hover;
+  }
+
+  :root .card-hover {
+    @apply shadow-none hover:shadow-sm hover:shadow-slate-400/10;
+  }
+
+  .dark .card-hover {
+    @apply shadow-none hover:shadow-lg hover:shadow-black/20;
+  }
+
+  .glass {
+    @apply border-b border-border bg-page/88 backdrop-blur-md;
+  }
+
+  .dark .glass {
+    @apply bg-surface/90;
+  }
+
+  .text-price {
+    @apply font-semibold text-price;
+  }
+
+  .link-accent {
+    @apply text-accent transition hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300;
+  }
+
+  .surface-panel {
+    @apply rounded-2xl border border-border bg-surface p-4;
+  }
+
+  .admin-form {
+    @apply mx-auto w-full max-w-md space-y-3 rounded-xl border border-border bg-surface p-3;
+  }
+
+  .admin-form-lg {
+    @apply max-w-2xl;
+  }
+
+  .admin-form label > span.block {
+    @apply mb-1 text-xs;
+  }
+
+  .admin-form .input-field,
+  .admin-form .select-field {
+    @apply py-2 px-3;
+  }
+
+  .admin-form textarea.input-field {
+    @apply min-h-[4.5rem];
+  }
+
+  .admin-form .btn-primary,
+  .admin-form .btn-secondary {
+    @apply py-2 px-4;
+  }
+
+  :root .surface-panel {
+    @apply shadow-none;
+  }
+
+  .dark .surface-panel {
+    @apply shadow-none;
+  }
+}

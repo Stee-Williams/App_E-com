@@ -1,0 +1,28 @@
+# Variables d'environnement (ne jamais versionner)
+.env
+.env.local
+.env.dev
+.env.test
+.env.*.local
+!.env.local.example
+!.env*.example
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Backend (Symfony)
+Backend/vendor/
+Backend/var/
+Backend/.phpunit.cache/
+Backend/.phpunit.result.cache
+Backend/public/bundles/
+Backend/.composer-cache/
+
+# Frontend (Vite / React)
+Frontend/node_modules/
+Frontend/dist/
+Frontend/dist-ssr/
