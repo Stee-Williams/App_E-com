@@ -3,17 +3,17 @@
 namespace App\Controller;
 
 use App\Entity\Commande;
-use App\Entity\VarianteProduit;
 use App\Repository\CommandeRepository;
 use App\Service\CommandeService;
-use App\Service\EmailService;
 use App\Service\NotificationService;
 use App\Service\Paginateur;
+use App\Service\PaiementService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Service\JsonSerializer;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api/orders')]
@@ -24,9 +24,10 @@ class CommandeController extends ApiController
         private readonly EntityManagerInterface $em,
         private readonly CommandeRepository $commandeRepository,
         private readonly CommandeService $commandeService,
+        private readonly PaiementService $paiementService,
         private readonly NotificationService $notificationService,
-        private readonly EmailService $emailService,
         private readonly Paginateur $paginateur,
+        private readonly LoggerInterface $logger,
     ) {
         parent::__construct($serializer);
     }
@@ -57,8 +58,23 @@ class CommandeController extends ApiController
     {
         $this->exigerAdmin();
 
+        $statut = trim((string) $request->query->get('statut', ''));
+        $statutsAutorises = [
+            Commande::STATUT_EN_ATTENTE,
+            Commande::STATUT_CONFIRMEE,
+            Commande::STATUT_EXPEDIEE,
+            Commande::STATUT_LIVREE,
+            Commande::STATUT_ANNULEE,
+        ];
+        if ($statut !== '' && !in_array($statut, $statutsAutorises, true)) {
+            return $this->jsonErreur('État de commande invalide.');
+        }
+
         $pagination = $this->paginateur->depuisRequete($request, 10, 50);
-        $qb = $this->commandeRepository->creerRequeteListe();
+        $qb = $this->commandeRepository->creerRequeteListe(
+            (string) $request->query->get('tri', 'recent'),
+            $statut !== '' ? $statut : null,
+        );
         $resultat = $this->paginateur->executer($qb, 'c', $pagination['page'], $pagination['limit']);
 
         return $this->jsonPage(
@@ -92,7 +108,7 @@ class CommandeController extends ApiController
             return $this->jsonErreur($e->getMessage());
         }
 
-        $this->emailService->envoyerConfirmationCommande($commande);
+        $this->notificationService->notifierNouvelleCommande($commande);
 
         return $this->json([
             'commande' => $this->serializer->normalize($commande, ['commande:lecture', 'produit:lecture']),
@@ -149,9 +165,12 @@ class CommandeController extends ApiController
             return $this->jsonErreur($e->getMessage());
         }
 
-        $this->emailService->envoyerConfirmationCommande($commande);
+        $this->notificationService->notifierNouvelleCommande($commande);
 
-        return $this->jsonData($commande, ['commande:lecture', 'produit:lecture', 'adresse:lecture'], Response::HTTP_CREATED);
+        return $this->json([
+            'commande' => $this->serializer->normalize($commande, ['commande:lecture', 'produit:lecture', 'adresse:lecture']),
+            'jetonSuivi' => $commande->getJetonSuivi(),
+        ], Response::HTTP_CREATED);
     }
 
     #[Route('/{id}', name: 'api_orders_show', methods: ['GET'])]
@@ -186,6 +205,23 @@ class CommandeController extends ApiController
         }
 
         $ancienStatut = $commande->getStatut();
+        if ($statut === Commande::STATUT_ANNULEE) {
+            if ($commande->getStatutPaiement() === Commande::PAIEMENT_PAYE) {
+                return $this->jsonErreur('Un remboursement doit être effectué avant l’annulation de cette commande.', Response::HTTP_CONFLICT);
+            }
+            if (!$this->commandeService->annulerCommande($commande)) {
+                return $this->jsonErreur('Cette commande ne peut pas être annulée.', Response::HTTP_CONFLICT);
+            }
+            $this->notificationService->notifierStatutCommande($commande, $ancienStatut);
+
+            return $this->jsonData($commande, ['commande:lecture', 'admin:lecture']);
+        }
+        if ($commande->getStatutPaiement() === Commande::PAIEMENT_EN_ATTENTE
+            && $statut !== Commande::STATUT_EN_ATTENTE
+        ) {
+            return $this->jsonErreur('Le paiement doit être confirmé avant de faire avancer la commande.', Response::HTTP_CONFLICT);
+        }
+
         $commande->setStatut($statut);
         $this->em->flush();
 
@@ -207,29 +243,25 @@ class CommandeController extends ApiController
             return $this->jsonErreur('Accès refusé.', Response::HTTP_FORBIDDEN);
         }
 
-        if ($commande->getStatut() === Commande::STATUT_ANNULEE) {
-            return $this->jsonErreur('Commande déjà annulée.');
-        }
-
-        if (in_array($commande->getStatut(), [Commande::STATUT_EXPEDIEE, Commande::STATUT_LIVREE], true)) {
-            return $this->jsonErreur('Cette commande ne peut plus être annulée.');
-        }
-
-        foreach ($commande->getLignes() as $ligne) {
-            $produit = $ligne->getProduit();
-            if ($produit) {
-                $variante = $ligne->getVariante();
-                if ($variante) {
-                    $variante->setStock($variante->getStock() + $ligne->getQuantite());
-                } else {
-                    $produit->setStock($produit->getStock() + $ligne->getQuantite());
-                }
-            }
-        }
-
         $ancienStatut = $commande->getStatut();
-        $commande->setStatut(Commande::STATUT_ANNULEE);
-        $this->em->flush();
+        if ($commande->getStripeSessionId()) {
+            try {
+                $this->paiementService->annulerParJeton((string) $commande->getJetonSuivi());
+            } catch (\Stripe\Exception\ApiErrorException|\LogicException $e) {
+                $this->logger->warning('Expiration de session Stripe impossible.', [
+                    'commande' => $commande->getId(),
+                    'error' => $e->getMessage(),
+                ]);
+
+                return $this->jsonErreur('Le paiement est en cours de traitement. Réessayez dans quelques instants.', Response::HTTP_CONFLICT);
+            }
+            $this->em->refresh($commande);
+            if ($commande->getStatut() !== Commande::STATUT_ANNULEE) {
+                return $this->jsonErreur('Cette commande ne peut plus être annulée.', Response::HTTP_CONFLICT);
+            }
+        } elseif (!$this->commandeService->annulerCommande($commande)) {
+            return $this->jsonErreur('Cette commande ne peut plus être annulée.', Response::HTTP_CONFLICT);
+        }
 
         $this->notificationService->notifierStatutCommande($commande, $ancienStatut);
 

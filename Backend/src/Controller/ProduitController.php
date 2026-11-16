@@ -9,6 +9,7 @@ use App\Entity\VarianteProduit;
 use App\Repository\AvisRepository;
 use App\Repository\CategorieRepository;
 use App\Repository\ProduitRepository;
+use App\Repository\VarianteProduitRepository;
 use App\Service\Paginateur;
 use App\Service\SlugService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,6 +18,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Service\JsonSerializer;
+use App\Service\ImageOptimizationService;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api/products')]
@@ -28,8 +30,10 @@ class ProduitController extends ApiController
         private readonly ProduitRepository $produitRepository,
         private readonly CategorieRepository $categorieRepository,
         private readonly AvisRepository $avisRepository,
+        private readonly VarianteProduitRepository $varianteProduitRepository,
         private readonly SlugService $slugService,
         private readonly Paginateur $paginateur,
+        private readonly ImageOptimizationService $imageOptimizationService,
         private readonly string $projectDir,
     ) {
         parent::__construct($serializer);
@@ -54,13 +58,28 @@ class ProduitController extends ApiController
         $pagination = $this->paginateur->depuisRequete($request, 12, 48);
         $qb = $this->produitRepository->creerRequeteFiltree($filtres);
         $resultat = $this->paginateur->executer($qb, 'p', $pagination['page'], $pagination['limit']);
+        $produitIds = array_map(
+            static fn (Produit $produit): int => (int) $produit->getId(),
+            $resultat['items'],
+        );
+        $moyennes = $this->avisRepository->trouverMoyennesParProduit($produitIds);
+        $stocks = $this->varianteProduitRepository->trouverStocksParProduit($produitIds);
+        $items = $this->serializer->normalize($resultat['items'], ['produit:liste', 'categorie:liste']);
+
+        foreach ($items as &$item) {
+            $produitId = (int) $item['id'];
+            $stock = $stocks[$produitId] ?? null;
+            $item['hasVariantes'] = ($stock['nombre'] ?? 0) > 0;
+            $item['stockDisponible'] = $stock['stockDisponible'] ?? (int) $item['stock'];
+            $item['noteMoyenne'] = $moyennes[$produitId] ?? null;
+        }
+        unset($item);
 
         return $this->jsonPage(
-            $resultat['items'],
+            $items,
             $resultat['total'],
             $pagination['page'],
             $pagination['limit'],
-            ['produit:lecture', 'categorie:lecture', 'variante:lecture'],
         );
     }
 
@@ -312,6 +331,8 @@ class ProduitController extends ApiController
 
         $nom = uniqid('produit_', true) . '.' . $fichier->guessExtension();
         $fichier->move($dossier, $nom);
+        $chemin = $dossier . DIRECTORY_SEPARATOR . $nom;
+        $this->imageOptimizationService->genererVariantes($chemin);
 
         return '/uploads/produits/' . $nom;
     }

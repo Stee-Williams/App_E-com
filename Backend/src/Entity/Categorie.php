@@ -16,12 +16,12 @@ class Categorie
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['categorie:lecture', 'produit:lecture'])]
+    #[Groups(['categorie:lecture', 'categorie:liste', 'produit:lecture'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 120)]
     #[Assert\NotBlank]
-    #[Groups(['categorie:lecture', 'categorie:ecriture', 'produit:lecture'])]
+    #[Groups(['categorie:lecture', 'categorie:liste', 'categorie:ecriture', 'produit:lecture'])]
     private ?string $nom = null;
 
     #[ORM\Column(length: 150, unique: true)]

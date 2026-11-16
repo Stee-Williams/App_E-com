@@ -2,12 +2,17 @@
 
 namespace App\Service;
 
-use App\Entity\Utilisateur;
-use Doctrine\Common\Collections\Collection;
 use App\Attribute\Groups;
+use App\Entity\Produit;
+use Doctrine\Common\Collections\Collection;
 
 class JsonSerializer
 {
+    public function __construct(
+        private readonly ImageOptimizationService $imageOptimizationService,
+    ) {
+    }
+
     public function serialize(mixed $data, array $groups): string
     {
         return json_encode($this->normalize($data, $groups), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
@@ -86,6 +91,16 @@ class JsonSerializer
             }
 
             $result[$key] = $this->normalize($value, $groups);
+        }
+
+        if (
+            $data instanceof Produit
+            && array_intersect(['produit:lecture', 'produit:liste', 'commande:lecture', 'liste_souhaits:lecture'], $groups) !== []
+        ) {
+            $srcSet = $this->imageOptimizationService->obtenirSrcSet($data->getImagePrincipale());
+            if ($srcSet !== null) {
+                $result['imageSrcSet'] = $srcSet;
+            }
         }
 
         return $result;

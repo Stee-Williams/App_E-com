@@ -7,6 +7,7 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    app.senegal_api_key: ''
 
 services:
     # default configuration for services in *this* file
@@ -27,7 +28,19 @@ services:
         bind:
             $projectDir: '%kernel.project_dir%'
 
+    App\Service\ImageOptimizationService:
+        bind:
+            $projectDir: '%kernel.project_dir%'
+
+    App\Service\JsonSerializer:
+        bind:
+            $imageOptimizationService: '@App\Service\ImageOptimizationService'
+
     App\Command\MigrateSqliteToPostgresCommand:
+        bind:
+            $projectDir: '%kernel.project_dir%'
+
+    App\Command\ImportCatalogueCommand:
         bind:
             $projectDir: '%kernel.project_dir%'
 
@@ -35,6 +48,17 @@ services:
         bind:
             $mailFromAddress: '%env(string:MAIL_FROM_ADDRESS)%'
             $mailFromName: '%env(string:MAIL_FROM_NAME)%'
+            $frontendUrl: '%env(string:APP_FRONTEND_URL)%'
+
+    App\Service\SenegalGeographieService:
+        bind:
+            $apiKey: '%env(default:app.senegal_api_key:SENEGAL_API_KEY)%'
+
+    App\Service\PaiementService:
+        bind:
+            $secretKey: '%env(string:STRIPE_SECRET_KEY)%'
+            $webhookSecret: '%env(string:STRIPE_WEBHOOK_SECRET)%'
+            $mode: '%env(string:STRIPE_MODE)%'
             $frontendUrl: '%env(string:APP_FRONTEND_URL)%'
 
     # add more service definitions when explicit configuration is needed

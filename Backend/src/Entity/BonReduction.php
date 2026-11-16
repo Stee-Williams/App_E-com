@@ -164,6 +164,11 @@ class BonReduction
         ++$this->utilisations;
     }
 
+    public function decrementerUtilisations(): void
+    {
+        $this->utilisations = max(0, $this->utilisations - 1);
+    }
+
     public function isActif(): bool
     {
         return $this->actif;

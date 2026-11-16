@@ -103,7 +103,8 @@ class AdresseController extends ApiController
             $adresse->setVille((string) $data['ville']);
         }
         if (isset($data['codePostal'])) {
-            $adresse->setCodePostal((string) $data['codePostal']);
+            $codePostal = trim((string) $data['codePostal']);
+            $adresse->setCodePostal($codePostal !== '' ? $codePostal : null);
         }
         if (isset($data['pays'])) {
             $adresse->setPays((string) $data['pays']);

@@ -18,6 +18,10 @@ class Commande
     public const STATUT_EXPEDIEE = 'expediee';
     public const STATUT_LIVREE = 'livree';
     public const STATUT_ANNULEE = 'annulee';
+    public const PAIEMENT_SANS_PAIEMENT = 'sans_paiement';
+    public const PAIEMENT_EN_ATTENTE = 'en_attente';
+    public const PAIEMENT_PAYE = 'paye';
+    public const PAIEMENT_ANNULE = 'annule';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -28,6 +32,13 @@ class Commande
     #[ORM\Column(length: 30)]
     #[Groups(['commande:lecture', 'admin:lecture'])]
     private string $statut = self::STATUT_EN_ATTENTE;
+
+    #[ORM\Column(length: 30, options: ['default' => self::PAIEMENT_SANS_PAIEMENT])]
+    #[Groups(['commande:lecture', 'admin:lecture'])]
+    private string $statutPaiement = self::PAIEMENT_SANS_PAIEMENT;
+
+    #[ORM\Column(length: 255, nullable: true, unique: true)]
+    private ?string $stripeSessionId = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     #[Groups(['commande:lecture', 'admin:lecture'])]
@@ -136,6 +147,30 @@ class Commande
     public function setStatut(string $statut): static
     {
         $this->statut = $statut;
+
+        return $this;
+    }
+
+    public function getStatutPaiement(): string
+    {
+        return $this->statutPaiement;
+    }
+
+    public function setStatutPaiement(string $statutPaiement): static
+    {
+        $this->statutPaiement = $statutPaiement;
+
+        return $this;
+    }
+
+    public function getStripeSessionId(): ?string
+    {
+        return $this->stripeSessionId;
+    }
+
+    public function setStripeSessionId(?string $stripeSessionId): static
+    {
+        $this->stripeSessionId = $stripeSessionId;
 
         return $this;
     }

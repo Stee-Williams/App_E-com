@@ -19,8 +19,27 @@ export default function SuiviCommandePage() {
   const [chargement, setChargement] = useState(false)
 
   useEffect(() => {
-    const j = searchParams.get('jeton')
-    if (j) setJeton(j)
+    const jetonInitial = searchParams.get('jeton')
+    if (!jetonInitial) return
+
+    let active = true
+    setJeton(jetonInitial)
+    setChargement(true)
+    setErreur('')
+    apiGet<Commande>(`/api/orders/track?jeton=${encodeURIComponent(jetonInitial)}`)
+      .then((data) => {
+        if (active) setCommande(data)
+      })
+      .catch((e) => {
+        if (active) setErreur(e instanceof Error ? e.message : 'Commande introuvable')
+      })
+      .finally(() => {
+        if (active) setChargement(false)
+      })
+
+    return () => {
+      active = false
+    }
   }, [searchParams])
 
   const rechercher = async () => {
@@ -51,7 +70,13 @@ export default function SuiviCommandePage() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <PageTitle title="Suivre ma commande" subtitle="Invité ou sans compte" />
+      <PageTitle title="Suivre ma commande" subtitle="Retrouvez le statut et le détail de votre commande." />
+
+      {searchParams.get('confirmation') === '1' && commande && (
+        <p role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+          Votre commande a bien été enregistrée.
+        </p>
+      )}
 
       <div className="card-hover space-y-4 p-6">
         <FormField label="Jeton de suivi (reçu après commande)">

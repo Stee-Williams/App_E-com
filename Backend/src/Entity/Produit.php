@@ -17,12 +17,12 @@ class Produit
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['produit:lecture', 'commande:lecture', 'liste_souhaits:lecture', 'avis:lecture'])]
+    #[Groups(['produit:lecture', 'produit:liste', 'commande:lecture', 'liste_souhaits:lecture', 'avis:lecture'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 200)]
     #[Assert\NotBlank]
-    #[Groups(['produit:lecture', 'produit:ecriture', 'commande:lecture', 'liste_souhaits:lecture'])]
+    #[Groups(['produit:lecture', 'produit:liste', 'produit:ecriture', 'commande:lecture', 'liste_souhaits:lecture'])]
     private ?string $nom = null;
 
     #[ORM\Column(length: 220, unique: true)]
@@ -35,16 +35,16 @@ class Produit
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     #[Assert\PositiveOrZero]
-    #[Groups(['produit:lecture', 'produit:ecriture', 'commande:lecture', 'liste_souhaits:lecture'])]
+    #[Groups(['produit:lecture', 'produit:liste', 'produit:ecriture', 'commande:lecture', 'liste_souhaits:lecture'])]
     private ?string $prix = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
-    #[Groups(['produit:lecture', 'produit:ecriture'])]
+    #[Groups(['produit:lecture', 'produit:liste', 'produit:ecriture'])]
     private ?string $prixPromo = null;
 
     #[ORM\Column]
     #[Assert\PositiveOrZero]
-    #[Groups(['produit:lecture', 'produit:ecriture'])]
+    #[Groups(['produit:lecture', 'produit:liste', 'produit:ecriture'])]
     private int $stock = 0;
 
     #[ORM\Column]
@@ -52,12 +52,12 @@ class Produit
     private bool $actif = true;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['produit:lecture', 'produit:ecriture', 'commande:lecture', 'liste_souhaits:lecture'])]
+    #[Groups(['produit:lecture', 'produit:liste', 'produit:ecriture', 'commande:lecture', 'liste_souhaits:lecture'])]
     private ?string $imagePrincipale = null;
 
     #[ORM\ManyToOne(inversedBy: 'produits')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['produit:lecture', 'produit:ecriture'])]
+    #[Groups(['produit:lecture', 'produit:liste', 'produit:ecriture'])]
     private ?Categorie $categorie = null;
 
     #[ORM\Column]

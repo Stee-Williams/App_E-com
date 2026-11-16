@@ -2,7 +2,6 @@
 
 namespace App\Controller;
 
-use App\Entity\Commande;
 use App\Repository\AvisRepository;
 use App\Repository\CommandeRepository;
 use App\Repository\CategorieRepository;
@@ -34,31 +33,16 @@ class AdminController extends ApiController
     {
         $this->exigerAdmin();
 
-        $commandes = $this->commandeRepository->findAll();
-        $chiffreAffaires = 0.0;
-        $commandesParMois = [];
-        $statuts = [];
-
-        foreach ($commandes as $commande) {
-            if ($commande->getStatut() !== Commande::STATUT_ANNULEE) {
-                $chiffreAffaires += (float) $commande->getTotal();
-            }
-
-            $mois = $commande->getDateCreation()?->format('Y-m') ?? 'inconnu';
-            $commandesParMois[$mois] = ($commandesParMois[$mois] ?? 0) + 1;
-            $statuts[$commande->getStatut()] = ($statuts[$commande->getStatut()] ?? 0) + 1;
-        }
-
-        ksort($commandesParMois);
+        $statsCommandes = $this->commandeRepository->obtenirStatistiquesAdmin();
 
         return $this->json([
-            'utilisateurs' => count($this->utilisateurRepository->findAll()),
-            'produits' => count($this->produitRepository->findAll()),
-            'commandes' => count($commandes),
-            'avis' => count($this->avisRepository->findAll()),
-            'chiffreAffaires' => round($chiffreAffaires, 2),
-            'commandesParMois' => array_map(fn ($mois, $total) => ['mois' => $mois, 'total' => $total], array_keys($commandesParMois), array_values($commandesParMois)),
-            'statutsCommandes' => $statuts,
+            'utilisateurs' => $this->utilisateurRepository->count([]),
+            'produits' => $this->produitRepository->count([]),
+            'commandes' => $statsCommandes['total'],
+            'avis' => $this->avisRepository->count([]),
+            'chiffreAffaires' => $statsCommandes['chiffreAffaires'],
+            'commandesParMois' => $statsCommandes['commandesParMois'],
+            'statutsCommandes' => $statsCommandes['statuts'],
         ]);
     }
 
@@ -68,7 +52,10 @@ class AdminController extends ApiController
         $this->exigerAdmin();
 
         $pagination = $this->paginateur->depuisRequete($request, 10, 50);
-        $qb = $this->produitRepository->creerRequeteFiltree(['actifsSeulement' => false]);
+        $qb = $this->produitRepository->creerRequeteFiltree([
+            'actifsSeulement' => false,
+            'tri' => (string) $request->query->get('tri', 'recent'),
+        ]);
         $resultat = $this->paginateur->executer($qb, 'p', $pagination['page'], $pagination['limit']);
 
         return $this->jsonPage(

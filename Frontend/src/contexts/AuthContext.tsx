@@ -19,19 +19,22 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [utilisateur, setUtilisateur] = useState<Utilisateur | null>(null)
   const [chargement, setChargement] = useState(true)
-  const [jetonPresent] = useState(() => !!localStorage.getItem('novashop_token'))
+  const [jetonPresent, setJetonPresent] = useState(() => !!localStorage.getItem('novashop_token'))
 
   const rafraichir = useCallback(async () => {
     const token = localStorage.getItem('novashop_token')
     if (!token) {
+      setJetonPresent(false)
       setUtilisateur(null)
       return
     }
     try {
       const data = await api<Utilisateur>('/api/auth/me')
+      setJetonPresent(true)
       setUtilisateur(data)
     } catch {
       localStorage.removeItem('novashop_token')
+      setJetonPresent(false)
       setUtilisateur(null)
     }
   }, [])
@@ -46,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ email, motDePasse }),
     })
     localStorage.setItem('novashop_token', data.jeton)
+    setJetonPresent(true)
     setUtilisateur(data.utilisateur)
     return data.utilisateur
   }
@@ -56,11 +60,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify(payload),
     })
     localStorage.setItem('novashop_token', data.jeton)
+    setJetonPresent(true)
     setUtilisateur(data.utilisateur)
   }
 
   const deconnexion = () => {
     localStorage.removeItem('novashop_token')
+    setJetonPresent(false)
     setUtilisateur(null)
   }
 

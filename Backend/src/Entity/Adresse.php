@@ -32,8 +32,7 @@ class Adresse
     #[Groups(['adresse:lecture', 'adresse:ecriture', 'utilisateur:lecture', 'commande:lecture'])]
     private ?string $ville = null;
 
-    #[ORM\Column(length: 20)]
-    #[Assert\NotBlank]
+    #[ORM\Column(length: 20, nullable: true)]
     #[Groups(['adresse:lecture', 'adresse:ecriture', 'utilisateur:lecture', 'commande:lecture'])]
     private ?string $codePostal = null;
 
@@ -96,7 +95,7 @@ class Adresse
         return $this->codePostal;
     }
 
-    public function setCodePostal(string $codePostal): static
+    public function setCodePostal(?string $codePostal): static
     {
         $this->codePostal = $codePostal;
 
@@ -142,6 +141,8 @@ class Adresse
     #[Groups(['commande:lecture'])]
     public function getAdresseComplete(): string
     {
-        return sprintf('%s, %s %s, %s', $this->rue, $this->codePostal, $this->ville, $this->pays);
+        $localite = trim(($this->codePostal ? $this->codePostal . ' ' : '') . $this->ville);
+
+        return sprintf('%s, %s, %s', $this->rue, $localite, $this->pays);
     }
 }

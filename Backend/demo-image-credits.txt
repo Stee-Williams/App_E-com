@@ -1,0 +1,43 @@
+Images for fictional demo products
+==================================
+
+These are illustrative stock photos. They do not depict guaranteed NovaShop
+inventory and must not imply endorsement by any person or brand shown.
+
+Pexels photos are free to use under the Pexels License:
+https://www.pexels.com/license/
+
+Unsplash photos are free to use under the Unsplash License:
+https://unsplash.com/license
+
+demo-baskets-pace.jpg
+  Pexels photo 8032734:
+  https://images.pexels.com/photos/8032734/pexels-photo-8032734.jpeg
+
+demo-tshirt-core.jpg
+  Unsplash image:
+  https://images.unsplash.com/photo-1521572163474-6864f9cf17ab
+
+demo-legging-motion.jpg
+  Pexels photo 4567655:
+  https://images.pexels.com/photos/4567655/pexels-photo-4567655.jpeg
+
+demo-brassiere-studio.jpg
+  Pexels photo 3927388:
+  https://images.pexels.com/photos/3927388/pexels-photo-3927388.jpeg
+
+demo-haut-training.jpg
+  Pexels photo 8007174:
+  https://images.pexels.com/photos/8007174/pexels-photo-8007174.jpeg
+
+demo-tapis-training.jpg
+  Pexels photo 3927387:
+  https://images.pexels.com/photos/3927387/pexels-photo-3927387.jpeg
+
+demo-casquette-pace.jpg
+  Unsplash image:
+  https://images.unsplash.com/photo-1588850561407-ed78c282e89b
+
+demo-sac-urban.jpg
+  Pexels photo 8555349:
+  https://images.pexels.com/photos/8555349/pexels-photo-8555349.jpeg

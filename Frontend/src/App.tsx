@@ -1,3 +1,4 @@
+import { lazy } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { CartProvider } from './contexts/CartContext'
@@ -6,26 +7,28 @@ import { CompareProvider } from './contexts/CompareContext'
 import { NotificationsProvider } from './contexts/NotificationsContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { Layout } from './components/Layout'
-import AccueilPage from './pages/AccueilPage'
-import ProduitsPage from './pages/ProduitsPage'
-import FicheProduitPage from './pages/FicheProduitPage'
-import CategoriesPage from './pages/CategoriesPage'
-import PanierPage from './pages/PanierPage'
-import ListeSouhaitsPage from './pages/ListeSouhaitsPage'
-import CommandesPage from './pages/CommandesPage'
-import ComparateurPage from './pages/ComparateurPage'
-import SuiviCommandePage from './pages/SuiviCommandePage'
-import ConnexionPage from './pages/ConnexionPage'
-import InscriptionPage from './pages/InscriptionPage'
-import MotDePasseOubliePage from './pages/MotDePasseOubliePage'
-import ProfilPage from './pages/ProfilPage'
-import AdministrationPage from './pages/AdministrationPage'
-import AProposPage from './pages/AProposPage'
-import ContactPage from './pages/ContactPage'
-import ConfidentialitePage from './pages/ConfidentialitePage'
-import CgvPage from './pages/CgvPage'
-import CgiPage from './pages/CgiPage'
-import IntrouvablePage from './pages/IntrouvablePage'
+
+const AccueilPage = lazy(() => import('./pages/AccueilPage'))
+const ProduitsPage = lazy(() => import('./pages/ProduitsPage'))
+const FicheProduitPage = lazy(() => import('./pages/FicheProduitPage'))
+const CategoriesPage = lazy(() => import('./pages/CategoriesPage'))
+const PanierPage = lazy(() => import('./pages/PanierPage'))
+const ListeSouhaitsPage = lazy(() => import('./pages/ListeSouhaitsPage'))
+const CommandesPage = lazy(() => import('./pages/CommandesPage'))
+const ComparateurPage = lazy(() => import('./pages/ComparateurPage'))
+const SuiviCommandePage = lazy(() => import('./pages/SuiviCommandePage'))
+const ConnexionPage = lazy(() => import('./pages/ConnexionPage'))
+const InscriptionPage = lazy(() => import('./pages/InscriptionPage'))
+const MotDePasseOubliePage = lazy(() => import('./pages/MotDePasseOubliePage'))
+const ProfilPage = lazy(() => import('./pages/ProfilPage'))
+const AdministrationPage = lazy(() => import('./pages/AdministrationPage'))
+const AProposPage = lazy(() => import('./pages/AProposPage'))
+const ContactPage = lazy(() => import('./pages/ContactPage'))
+const ConfidentialitePage = lazy(() => import('./pages/ConfidentialitePage'))
+const CgvPage = lazy(() => import('./pages/CgvPage'))
+const CgiPage = lazy(() => import('./pages/CgiPage'))
+const PaiementPage = lazy(() => import('./pages/PaiementPage'))
+const IntrouvablePage = lazy(() => import('./pages/IntrouvablePage'))
 
 export default function App() {
   return (
@@ -43,6 +46,8 @@ export default function App() {
                       <Route path="produits/:id" element={<FicheProduitPage />} />
                       <Route path="categories" element={<CategoriesPage />} />
                       <Route path="panier" element={<PanierPage />} />
+                      <Route path="paiement/retour" element={<PaiementPage />} />
+                      <Route path="paiement/annule" element={<PaiementPage />} />
                       <Route path="liste-souhaits" element={<ListeSouhaitsPage />} />
                       <Route path="commandes" element={<CommandesPage />} />
                       <Route path="comparateur" element={<ComparateurPage />} />

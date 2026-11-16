@@ -42,6 +42,7 @@ export interface Produit {
   stock: number
   actif?: boolean
   imagePrincipale?: string
+  imageSrcSet?: string
   categorie?: Categorie
   images?: ImageProduit[]
   avis?: Avis[]
@@ -65,7 +66,7 @@ export interface Adresse {
   libelle: string
   rue: string
   ville: string
-  codePostal: string
+  codePostal?: string | null
   pays: string
   parDefaut: boolean
   adresseComplete?: string
@@ -97,6 +98,7 @@ export interface Commande {
   id: number
   numero: string
   statut: string
+  statutPaiement?: 'sans_paiement' | 'en_attente' | 'paye' | 'annule'
   sousTotal: string
   fraisLivraison: string
   reduction: string
@@ -108,6 +110,7 @@ export interface Commande {
   dateCreation?: string
   jetonSuivi?: string
   emailInvite?: string
+  telephoneInvite?: string
   prenomInvite?: string
   nomInvite?: string
   nomClient?: string
@@ -143,9 +146,16 @@ export interface NotificationsResponse {
   nonLues: number
 }
 
-export interface GuestOrderResponse {
+export interface OrderCreatedResponse {
   commande: Commande
   jetonSuivi: string
+}
+
+export interface PaymentStatusResponse {
+  numero: string
+  statut: string
+  statutPaiement: 'sans_paiement' | 'en_attente' | 'paye' | 'annule'
+  invite: boolean
 }
 
 export interface ElementListeSouhaits {
@@ -161,6 +171,7 @@ export interface ArticlePanier {
   nom: string
   prix: string
   image?: string
+  imageSrcSet?: string
   quantite: number
   stock: number
 }

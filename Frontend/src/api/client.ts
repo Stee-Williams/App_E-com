@@ -1,6 +1,8 @@
-import { avecCache } from './cache'
+import { avecCache, ecrireCache, lireCache } from './cache'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
+const MESSAGE_API_INDISPONIBLE =
+  'Impossible de joindre l’API sur le port 8000. Depuis le dossier Backend, lancez : symfony serve --listen-ip=127.0.0.1 --port=8000'
 
 export class ApiError extends Error {
   status: number
@@ -29,18 +31,18 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   let response: Response
   try {
     response = await fetch(`${API_URL}${path}`, { ...options, headers })
-  } catch {
-    throw new ApiError(
-      'Impossible de joindre l\'API. Démarrez le backend (dossier Backend) : php -S localhost:8000 -t public',
-      0,
-    )
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error
+    }
+    throw new ApiError(MESSAGE_API_INDISPONIBLE, 0)
   }
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({ erreur: 'Erreur réseau' }))
     const message = payload.erreur || payload.message || 'Une erreur est survenue'
     if (message === 'Failed to fetch' || message === 'Erreur réseau') {
-      throw new ApiError('Impossible de joindre l\'API. Démarrez le backend sur le port 8000.', response.status)
+      throw new ApiError(MESSAGE_API_INDISPONIBLE, response.status)
     }
     throw new ApiError(message, response.status)
   }
@@ -58,6 +60,16 @@ export async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> 
 
 export function apiGetCached<T>(path: string, dureeMs: number, signal?: AbortSignal): Promise<T> {
   const cle = `GET:${path}`
+  if (signal) {
+    const enMemoire = lireCache<T>(cle)
+    if (enMemoire !== null) return Promise.resolve(enMemoire)
+
+    return apiGet<T>(path, signal).then((data) => {
+      if (!signal.aborted) ecrireCache(cle, data, dureeMs)
+      return data
+    })
+  }
+
   return avecCache(cle, () => apiGet<T>(path, signal), dureeMs)
 }
 
@@ -91,6 +103,20 @@ export function imageUrl(path?: string | null, produitId = 1): string {
   </svg>`
 
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
+export function imageSrcSetUrl(srcSet?: string): string | undefined {
+  if (!srcSet) return undefined
+
+  const prefix = API_URL.replace(/\/$/, '')
+  return srcSet
+    .split(',')
+    .map((source) => {
+      const [path, ...descriptors] = source.trim().split(/\s+/)
+      const url = path.startsWith('/') ? `${prefix}${path}` : path
+      return `${url} ${descriptors.join(' ')}`
+    })
+    .join(', ')
 }
 
 export { API_URL }

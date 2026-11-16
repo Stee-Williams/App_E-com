@@ -21,6 +21,50 @@ class CommandeRepository extends ServiceEntityRepository
         return $this->creerRequeteParUtilisateur($utilisateurId)->getQuery()->getResult();
     }
 
+    /**
+     * @return array{
+     *     total: int,
+     *     chiffreAffaires: float,
+     *     commandesParMois: array<int, array{mois: string, total: int}>,
+     *     statuts: array<string, int>
+     * }
+     */
+    public function obtenirStatistiquesAdmin(): array
+    {
+        $connexion = $this->getEntityManager()->getConnection();
+        $totaux = $connexion->executeQuery(
+            'SELECT COUNT(id) AS total,
+                COALESCE(SUM(CASE WHEN statut <> :annulee THEN total ELSE 0 END), 0) AS chiffre_affaires
+             FROM commande',
+            ['annulee' => Commande::STATUT_ANNULEE],
+        )->fetchAssociative();
+
+        $statuts = $connexion->executeQuery(
+            'SELECT statut, COUNT(id) AS total FROM commande GROUP BY statut',
+        )->fetchAllKeyValue();
+
+        $commandesParMois = $connexion->executeQuery(
+            "SELECT CASE WHEN date_creation IS NULL THEN 'inconnu' ELSE TO_CHAR(date_creation, 'YYYY-MM') END AS mois,
+                COUNT(id) AS total
+             FROM commande
+             GROUP BY mois
+             ORDER BY mois",
+        )->fetchAllAssociative();
+
+        return [
+            'total' => (int) $totaux['total'],
+            'chiffreAffaires' => round((float) $totaux['chiffre_affaires'], 2),
+            'commandesParMois' => array_map(
+                static fn (array $ligne): array => [
+                    'mois' => (string) $ligne['mois'],
+                    'total' => (int) $ligne['total'],
+                ],
+                $commandesParMois,
+            ),
+            'statuts' => array_map('intval', $statuts),
+        ];
+    }
+
     public function creerRequeteParUtilisateur(int $utilisateurId): QueryBuilder
     {
         return $this->createQueryBuilder('c')
@@ -34,13 +78,26 @@ class CommandeRepository extends ServiceEntityRepository
             ->orderBy('c.dateCreation', 'DESC');
     }
 
-    public function creerRequeteListe(): QueryBuilder
+    public function creerRequeteListe(string $tri = 'recent', ?string $statut = null): QueryBuilder
     {
-        return $this->createQueryBuilder('c')
+        $qb = $this->createQueryBuilder('c')
             ->leftJoin('c.utilisateur', 'u')->addSelect('u')
             ->leftJoin('c.lignes', 'l')->addSelect('l')
-            ->leftJoin('l.produit', 'p')->addSelect('p')
-            ->orderBy('c.dateCreation', 'DESC');
+            ->leftJoin('l.produit', 'p')->addSelect('p');
+
+        if ($statut !== null) {
+            $qb->andWhere('c.statut = :statut')->setParameter('statut', $statut);
+        }
+
+        match ($tri) {
+            'ancien' => $qb->orderBy('c.dateCreation', 'ASC'),
+            'montant_asc' => $qb->orderBy('c.total', 'ASC'),
+            'montant_desc' => $qb->orderBy('c.total', 'DESC'),
+            'statut' => $qb->orderBy('c.statut', 'ASC')->addOrderBy('c.dateCreation', 'DESC'),
+            default => $qb->orderBy('c.dateCreation', 'DESC'),
+        };
+
+        return $qb;
     }
 
     public function findParJetonSuivi(string $jeton): ?Commande
@@ -54,6 +111,11 @@ class CommandeRepository extends ServiceEntityRepository
             ->setParameter('jeton', $jeton)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    public function findParSessionStripe(string $sessionId): ?Commande
+    {
+        return $this->findOneBy(['stripeSessionId' => $sessionId]);
     }
 
     public function findParNumeroEtEmail(string $numero, string $email): ?Commande

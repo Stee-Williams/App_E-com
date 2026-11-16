@@ -91,6 +91,18 @@ class ApiSubscriber implements EventSubscriberInterface
             return true;
         }
 
+        if ($method === 'POST' && in_array($path, ['/api/payments/stripe/webhook', '/api/payments/cancel'], true)) {
+            return true;
+        }
+
+        if ($method === 'GET' && $path === '/api/payments/status') {
+            return true;
+        }
+
+        if ($method === 'GET' && $path === '/api/geographie/suggestions') {
+            return true;
+        }
+
         if ($method === 'GET' && (str_starts_with($path, '/api/orders/track') || $path === '/api/orders/track')) {
             return true;
         }

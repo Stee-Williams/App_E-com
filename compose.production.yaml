@@ -1,0 +1,84 @@
+services:
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.production}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - database_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env.production}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.production}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:?Set APP_FRONTEND_URL in .env.production}
+      MAILER_DSN: ${MAILER_DSN:?Set MAILER_DSN in .env.production}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:?Set MAIL_FROM_ADDRESS in .env.production}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-NovaShop}
+      STRIPE_MODE: ${STRIPE_MODE:-test}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - product_uploads:/var/www/html/public/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1/api/products -o /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env.production}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+
+volumes:
+  database_data:
+  product_uploads:
+  caddy_data:
+  caddy_config:

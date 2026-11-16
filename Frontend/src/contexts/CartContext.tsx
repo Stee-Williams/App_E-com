@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { ArticlePanier } from '../api/types'
 import { cleArticle } from '../api/types'
 
@@ -64,14 +64,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  const vider = () => setArticles([])
+  const vider = useCallback(() => setArticles([]), [])
 
   const totalArticles = articles.reduce((sum, a) => sum + a.quantite, 0)
   const sousTotal = articles.reduce((sum, a) => sum + parseFloat(a.prix) * a.quantite, 0)
 
   const value = useMemo(
     () => ({ articles, ajouter, retirer, modifierQuantite, vider, totalArticles, sousTotal }),
-    [articles, totalArticles, sousTotal],
+    [articles, totalArticles, sousTotal, vider],
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

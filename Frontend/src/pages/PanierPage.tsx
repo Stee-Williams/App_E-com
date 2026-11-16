@@ -1,18 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Minus, Plus, Trash2 } from 'lucide-react'
-import { api, imageUrl } from '../api/client'
-import { cleArticle, formatPrix, type GuestOrderResponse } from '../api/types'
+import { api, apiGet } from '../api/client'
+import { cleArticle, formatPrix, type Adresse, type OrderCreatedResponse } from '../api/types'
 import { useAuth } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
 import { invaliderCacheProduits } from '../contexts/CategoriesContext'
 import { FormField, Input } from '../components/Form'
 import { EmptyState, PageTitle } from '../components/Ui'
+import { ProductImage } from '../components/ProductImage'
 
 const FRAIS_LIVRAISON = 2500
 
 export default function PanierPage() {
-  const { articles, modifierQuantite, retirer, vider, sousTotal } = useCart()
+  const { articles, modifierQuantite, retirer, sousTotal, vider } = useCart()
   const { estConnecte } = useAuth()
   const navigate = useNavigate()
   const [codeBon, setCodeBon] = useState('')
@@ -20,6 +21,7 @@ export default function PanierPage() {
   const [chargement, setChargement] = useState(false)
   const [erreur, setErreur] = useState('')
   const [adresseId, setAdresseId] = useState<number | ''>('')
+  const [adresses, setAdresses] = useState<Adresse[]>([])
   const [modeInvite, setModeInvite] = useState(false)
   const [invite, setInvite] = useState({
     email: '',
@@ -31,8 +33,29 @@ export default function PanierPage() {
     codePostal: '',
     pays: 'Sénégal',
   })
-  const [confirmation, setConfirmation] = useState<{ numero: string; jeton: string } | null>(null)
 
+  useEffect(() => {
+    if (!estConnecte) {
+      setAdresses([])
+      setAdresseId('')
+      return
+    }
+
+    let active = true
+    apiGet<Adresse[]>('/api/addresses')
+      .then((resultat) => {
+        if (!active) return
+        setAdresses(resultat)
+        setAdresseId(resultat.find((adresse) => adresse.parDefaut)?.id ?? resultat[0]?.id ?? '')
+      })
+      .catch((e) => {
+        if (active) setErreur(e instanceof Error ? e.message : 'Impossible de charger les adresses.')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [estConnecte])
   const validerBon = async () => {
     try {
       const res = await api<{ reduction: number }>('/api/coupons/validate', {
@@ -55,7 +78,11 @@ export default function PanierPage() {
     }))
 
   const commanderConnecte = async () => {
-    await api('/api/orders', {
+    if (!adresseId) {
+      throw new Error('Ajoutez puis sélectionnez une adresse de livraison dans votre profil.')
+    }
+
+    const data = await api<OrderCreatedResponse>('/api/orders', {
       method: 'POST',
       body: JSON.stringify({
         articles: payloadArticles(),
@@ -65,11 +92,11 @@ export default function PanierPage() {
     })
     invaliderCacheProduits()
     vider()
-    navigate('/commandes')
+    navigate(`/suivi-commande?jeton=${encodeURIComponent(data.jetonSuivi)}&confirmation=1`)
   }
 
   const commanderInvite = async () => {
-    const data = await api<GuestOrderResponse>('/api/orders/guest', {
+    const data = await api<OrderCreatedResponse>('/api/orders/guest', {
       method: 'POST',
       body: JSON.stringify({
         articles: payloadArticles(),
@@ -89,8 +116,7 @@ export default function PanierPage() {
     })
     invaliderCacheProduits()
     vider()
-    setConfirmation({ numero: data.commande.numero, jeton: data.jetonSuivi })
-    localStorage.setItem('novashop_last_jeton', data.jetonSuivi)
+    navigate(`/suivi-commande?jeton=${encodeURIComponent(data.jetonSuivi)}&confirmation=1`)
   }
 
   const commander = async () => {
@@ -115,25 +141,6 @@ export default function PanierPage() {
 
   const total = sousTotal + FRAIS_LIVRAISON - reduction
 
-  if (confirmation) {
-    return (
-      <div className="mx-auto max-w-lg text-center">
-        <PageTitle title="Commande confirmée !" />
-        <div className="card-hover p-8">
-          <p className="text-lg">Merci {invite.prenom} !</p>
-          <p className="mt-2 text-muted">Votre commande <strong>{confirmation.numero}</strong> a été enregistrée.</p>
-          <p className="mt-4 rounded-xl bg-surface-muted p-4 text-sm">
-            Conservez ce jeton de suivi :<br />
-            <code className="mt-2 block break-all font-mono text-brand-600">{confirmation.jeton}</code>
-          </p>
-          <Link to={`/suivi-commande?jeton=${confirmation.jeton}`} className="btn-primary mt-6 inline-flex">
-            Suivre ma commande
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
   if (articles.length === 0) {
     return (
       <div>
@@ -154,7 +161,14 @@ export default function PanierPage() {
         <div className="space-y-4 lg:col-span-2">
           {articles.map((article) => (
             <div key={cleArticle(article.produitId, article.varianteId)} className="card-hover flex gap-4 p-4">
-              <img src={imageUrl(article.image, article.produitId)} alt={article.nom} className="h-24 w-24 rounded-xl object-cover" />
+              <ProductImage
+                path={article.image}
+                imageSrcSet={article.imageSrcSet}
+                produitId={article.produitId}
+                alt={article.nom}
+                className="h-24 w-24 rounded-xl object-cover"
+                sizes="96px"
+              />
               <div className="flex flex-1 flex-col justify-between">
                 <div>
                   <h3 className="font-semibold">{article.nom}</h3>
@@ -199,15 +213,27 @@ export default function PanierPage() {
           </FormField>
 
           {estConnecte && (
-            <FormField label="Adresse de livraison" hint="Indiquez l'ID depuis votre profil, ou laissez vide" className="mt-4">
-              <Input
-                type="number"
-                min={1}
-                placeholder="N° d'adresse"
-                value={adresseId}
-                onChange={(e) => setAdresseId(e.target.value ? Number(e.target.value) : '')}
-              />
-            </FormField>
+            adresses.length > 0 ? (
+              <FormField label="Adresse de livraison" className="mt-4">
+                <select
+                  className="select-field"
+                  value={adresseId}
+                  onChange={(e) => setAdresseId(e.target.value ? Number(e.target.value) : '')}
+                  required
+                >
+                  <option value="">Choisir une adresse</option>
+                  {adresses.map((adresse) => (
+                    <option key={adresse.id} value={adresse.id}>
+                      {adresse.libelle} — {adresse.rue}, {adresse.ville}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            ) : (
+              <p className="mt-4 text-sm text-muted">
+                Ajoutez une adresse de livraison dans votre <Link to="/profil" className="link-accent">profil</Link> avant de commander.
+              </p>
+            )
           )}
 
           {(modeInvite || !estConnecte) && !estConnecte && (
@@ -231,7 +257,7 @@ export default function PanierPage() {
           {erreur && <p className="mt-2 text-sm text-red-500">{erreur}</p>}
 
           <button type="button" onClick={commander} className="btn-primary mt-6 w-full" disabled={chargement}>
-            {chargement ? 'Commande en cours...' : estConnecte ? 'Passer la commande' : modeInvite ? 'Confirmer la commande invité' : 'Commander sans compte'}
+            {chargement ? 'Enregistrement...' : estConnecte || modeInvite ? 'Confirmer la commande' : 'Commander en invité'}
           </button>
 
           {!estConnecte && !modeInvite && (
@@ -240,7 +266,6 @@ export default function PanierPage() {
             </p>
           )}
 
-          <p className="mt-2 text-center text-xs text-muted">Paiement non inclus — commande enregistrée sans paiement en ligne</p>
         </div>
       </div>
     </div>

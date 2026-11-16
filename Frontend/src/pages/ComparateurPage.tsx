@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
 import { Trash2, X } from 'lucide-react'
-import { imageUrl } from '../api/client'
 import { formatPrix, prixEffectif } from '../api/types'
 import { useCompare } from '../contexts/CompareContext'
 import { EmptyState, PageTitle } from '../components/Ui'
+import { ProductImage } from '../components/ProductImage'
 
 const CRITERES = [
   { cle: 'prix', label: 'Prix', valeur: (p: ReturnType<typeof useCompare>['produits'][0]) => formatPrix(prixEffectif(p)) },
@@ -50,7 +50,14 @@ export default function ComparateurPage() {
                       <X size={12} />
                     </button>
                     <Link to={`/produits/${p.id}`}>
-                      <img src={imageUrl(p.imagePrincipale, p.id)} alt={p.nom} className="aspect-square w-full rounded-xl object-cover" />
+                      <ProductImage
+                        path={p.imagePrincipale}
+                        imageSrcSet={p.imageSrcSet}
+                        produitId={p.id}
+                        alt={p.nom}
+                        className="aspect-square w-full rounded-xl object-cover"
+                        sizes="144px"
+                      />
                       <p className="mt-2 font-semibold hover:text-accent">{p.nom}</p>
                     </Link>
                   </div>

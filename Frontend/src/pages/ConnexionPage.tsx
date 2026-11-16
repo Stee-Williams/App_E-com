@@ -21,8 +21,7 @@ export default function ConnexionPage() {
     try {
       const utilisateur = await connexion(email, motDePasse)
       const estAdmin = utilisateur.roles?.includes('ROLE_ADMIN') ?? false
-      const destination = estAdmin && retour === '/' ? '/administration' : retour
-      navigate(destination)
+      navigate(estAdmin ? '/administration' : '/', { replace: true })
     } catch (err) {
       setErreur(err instanceof Error ? err.message : 'Erreur de connexion')
     } finally {

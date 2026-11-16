@@ -99,6 +99,8 @@ class ProduitRepository extends ServiceEntityRepository
             'prix_desc' => $qb->orderBy('COALESCE(p.prixPromo, p.prix)', 'DESC'),
             'nom_asc' => $qb->orderBy('p.nom', 'ASC'),
             'nom_desc' => $qb->orderBy('p.nom', 'DESC'),
+            'stock_asc' => $qb->orderBy('p.stock', 'ASC')->addOrderBy('p.nom', 'ASC'),
+            'stock_desc' => $qb->orderBy('p.stock', 'DESC')->addOrderBy('p.nom', 'ASC'),
             default => $qb->orderBy('p.dateCreation', 'DESC'),
         };
 

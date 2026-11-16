@@ -54,6 +54,34 @@ class NotificationService
         $this->em->flush();
     }
 
+    public function notifierNouvelleCommande(Commande $commande): void
+    {
+        $nomClient = $commande->getNomClient();
+        $nomClient = $nomClient !== '' ? $nomClient : 'un client';
+        $numero = $commande->getNumero() ?? 'Nouvelle commande';
+        $notificationCreee = false;
+
+        foreach ($this->utilisateurRepository->findAll() as $utilisateur) {
+            if (!in_array('ROLE_ADMIN', $utilisateur->getRoles(), true)) {
+                continue;
+            }
+
+            $notification = new Notification();
+            $notification->setUtilisateur($utilisateur);
+            $notification->setType(Notification::TYPE_COMMANDE);
+            $notification->setTitre('Nouvelle commande');
+            $notification->setMessage(sprintf('La commande %s a été passée par %s.', $numero, $nomClient));
+            $notification->setLien('/administration?onglet=commandes');
+
+            $this->em->persist($notification);
+            $notificationCreee = true;
+        }
+
+        if ($notificationCreee) {
+            $this->em->flush();
+        }
+    }
+
     public function notifierPromo(BonReduction $bon): void
     {
         $utilisateurs = $this->utilisateurRepository->findAll();

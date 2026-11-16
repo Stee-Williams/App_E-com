@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700" fill="none">
+  <defs>
+    <linearGradient id="upper" x1="180" y1="330" x2="730" y2="530" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset="1" stop-color="#dfe1d9"/>
+    </linearGradient>
+    <linearGradient id="sole" x1="214" y1="495" x2="744" y2="576" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d3ff45"/>
+      <stop offset="1" stop-color="#a7d324"/>
+    </linearGradient>
+    <filter id="shadow" x="85" y="425" width="760" height="180" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="20"/>
+    </filter>
+  </defs>
+  <circle cx="516" cy="331" r="248" fill="#d3ff45" opacity=".96"/>
+  <circle cx="516" cy="331" r="276" stroke="#d3ff45" stroke-opacity=".22" stroke-width="2"/>
+  <path d="M92 443 188 382M748 200l74-58M792 390l71-15" stroke="#f8f8f4" stroke-opacity=".3" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="474" cy="515" fill="#000" fill-opacity=".4" rx="330" ry="38" filter="url(#shadow)"/>
+  <path d="m151 471 43-34c26-20 47-49 61-81l31-72c11-25 34-40 61-40h41c19 0 37 8 50 22l74 77c26 27 57 47 93 58l125 39c30 9 50 37 50 68v24H185c-32 0-51-36-34-61Z" fill="url(#upper)" stroke="#101310" stroke-width="10" stroke-linejoin="round"/>
+  <path d="m288 285 69 14c23 5 42 17 58 34l63 68-155 11-95-49 29-63c6-13 18-19 31-15Z" fill="#181b17"/>
+  <path d="m423 313 68 70c24 25 55 44 89 54l126 39c21 6 36 25 36 47v9H288l-41-57 105-18c37-6 69-28 88-61l38-83c9-18 31-18 45 0Z" fill="#f3f4ee" stroke="#c7cbc1" stroke-width="6" stroke-linejoin="round"/>
+  <path d="m190 437 74 35c25 12 53 16 81 12l82-12" stroke="#858c80" stroke-width="7" stroke-linecap="round"/>
+  <path d="m393 344 76 57M377 366l75 58M361 388l74 58M345 410l70 54" stroke="#171917" stroke-width="9" stroke-linecap="round"/>
+  <path d="m456 309 30 29-28 8-24-25 22-12ZM514 370l29 29-29 5-27-28 27-6Z" fill="#d3ff45"/>
+  <path d="m176 489 132 18c37 5 74 4 111-2l279-45 100 37c22 8 36 29 36 53v19H183c-23 0-39-22-31-44l24-36Z" fill="url(#sole)" stroke="#101310" stroke-width="10" stroke-linejoin="round"/>
+  <path d="m217 543 545-2M257 564l485-1" stroke="#171917" stroke-opacity=".24" stroke-width="6" stroke-linecap="round"/>
+  <path d="m225 464 42-25M671 443l48 16" stroke="#171917" stroke-width="8" stroke-linecap="round"/>
+</svg>

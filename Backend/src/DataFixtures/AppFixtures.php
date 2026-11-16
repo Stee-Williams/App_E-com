@@ -13,6 +13,24 @@ use App\Service\MotDePasseService;
 
 class AppFixtures extends Fixture
 {
+    private const SLUGS_AVEC_PHOTO = [
+        'casque-bluetooth-pro',
+        'montre-connectee-fit',
+        'enceinte-portable',
+        'smartphone-nova-x-pro',
+        'tablette-lite-10',
+        'ecouteurs-true-wireless',
+        'clavier-mecanique-rgb',
+        'webcam-4k-pro-stream',
+        'veste-denim-classic',
+        'sneakers-running-pro',
+        'lampe-design-led',
+        'set-coussins-deco',
+        'cafetiere-expresso-italiana',
+        'aspirateur-robot-smart',
+        'purificateur-air-hepa',
+    ];
+
     private string $dossierImages;
 
     public function __construct(
@@ -152,6 +170,13 @@ class AppFixtures extends Fixture
 
     private function assurerImage(string $slug, string $nom, string $icone, int $couleur, bool $forcer = false): string
     {
+        if (in_array($slug, self::SLUGS_AVEC_PHOTO, true)) {
+            $fichierPhoto = $this->dossierImages . '/' . $slug . '.jpg';
+            if (is_file($fichierPhoto)) {
+                return '/uploads/produits/' . $slug . '.jpg';
+            }
+        }
+
         $fichier = $this->dossierImages . '/' . $slug . '.svg';
         if ($forcer || !file_exists($fichier)) {
             file_put_contents($fichier, $this->genererSvg($nom, $icone, $couleur));

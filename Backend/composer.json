@@ -8,17 +8,20 @@
     "require": {
         "php": ">=8.2",
         "ext-ctype": "*",
+        "ext-gd": "*",
         "ext-iconv": "*",
         "ext-pdo_pgsql": "*",
         "doctrine/doctrine-bundle": "^2.13",
         "doctrine/doctrine-migrations-bundle": "^3.4",
         "doctrine/orm": "^3.3",
         "nelmio/cors-bundle": "^2.5",
+        "stripe/stripe-php": "^23.0",
         "symfony/console": "7.4.*",
         "symfony/dotenv": "7.4.*",
-        "symfony/flex": "^2.11",
+        "symfony/flex": "^2.12",
         "symfony/framework-bundle": "7.4.*",
-        "symfony/mailer": "^7.4",
+        "symfony/http-client": "7.4.*",
+        "symfony/mailer": "^7.4.22",
         "symfony/password-hasher": "7.4.*",
         "symfony/runtime": "7.4.*",
         "symfony/security-bundle": "7.4.*",
@@ -29,7 +32,7 @@
     "require-dev": {
         "doctrine/doctrine-fixtures-bundle": "^4.0",
         "phpunit/phpunit": "^11.5",
-        "symfony/maker-bundle": "^1.62",
+        "symfony/maker-bundle": "^1.68",
         "symfony/phpunit-bridge": "7.4.*"
     },
     "config": {

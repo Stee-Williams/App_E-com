@@ -11,6 +11,7 @@ use App\Entity\VarianteProduit;
 use App\Repository\BonReductionRepository;
 use App\Repository\ProduitRepository;
 use App\Repository\VarianteProduitRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
 class CommandeService
@@ -34,6 +35,8 @@ class CommandeService
             $commande = new Commande();
             $commande->setUtilisateur($utilisateur);
             $commande->setFraisLivraison((string) self::FRAIS_LIVRAISON);
+            $commande->setJetonSuivi(bin2hex(random_bytes(24)));
+            $commande->setStatutPaiement(Commande::PAIEMENT_SANS_PAIEMENT);
 
             if ($adresseId) {
                 foreach ($utilisateur->getAdresses() as $adresse) {
@@ -42,6 +45,9 @@ class CommandeService
                         break;
                     }
                 }
+            }
+            if (!$commande->getAdresseLivraison()) {
+                throw new \InvalidArgumentException('Sélectionnez une adresse de livraison valide.');
             }
 
             $this->remplirLignes($commande, $articles);
@@ -82,6 +88,7 @@ class CommandeService
         return $this->em->wrapInTransaction(function () use ($email, $prenom, $nom, $invite, $adresse, $articles, $codeBon): Commande {
             $commande = new Commande();
             $commande->setFraisLivraison((string) self::FRAIS_LIVRAISON);
+            $commande->setStatutPaiement(Commande::PAIEMENT_SANS_PAIEMENT);
             $commande->setEmailInvite($email);
             $commande->setPrenomInvite($prenom);
             $commande->setNomInvite($nom);
@@ -209,5 +216,50 @@ class CommandeService
         }
 
         return array_values($groupes);
+    }
+
+    public function annulerCommande(Commande $commande): bool
+    {
+        return $this->em->wrapInTransaction(function () use ($commande): bool {
+            $this->em->refresh($commande, LockMode::PESSIMISTIC_WRITE);
+
+            if ($commande->getStatut() === Commande::STATUT_ANNULEE
+                || $commande->getStatutPaiement() === Commande::PAIEMENT_PAYE
+                || in_array($commande->getStatut(), [Commande::STATUT_EXPEDIEE, Commande::STATUT_LIVREE], true)
+            ) {
+                return false;
+            }
+
+            foreach ($commande->getLignes() as $ligne) {
+                $produit = $ligne->getProduit();
+                if (!$produit) {
+                    continue;
+                }
+
+                $this->em->refresh($produit, LockMode::PESSIMISTIC_WRITE);
+                $variante = $ligne->getVariante();
+                if ($variante) {
+                    $this->em->refresh($variante, LockMode::PESSIMISTIC_WRITE);
+                    $variante->setStock($variante->getStock() + $ligne->getQuantite());
+                } else {
+                    $produit->setStock($produit->getStock() + $ligne->getQuantite());
+                }
+            }
+
+            $bon = $commande->getBonReduction();
+            if ($bon) {
+                $this->em->refresh($bon, LockMode::PESSIMISTIC_WRITE);
+                $bon->decrementerUtilisations();
+            }
+
+            $commande->setStatut(Commande::STATUT_ANNULEE);
+            if ($commande->getStatutPaiement() === Commande::PAIEMENT_EN_ATTENTE) {
+                $commande->setStatutPaiement(Commande::PAIEMENT_ANNULE);
+            }
+
+            $this->em->flush();
+
+            return true;
+        });
     }
 }

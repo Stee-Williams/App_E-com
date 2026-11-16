@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart, Trash2 } from 'lucide-react'
-import { api, apiGetCached, imageUrl } from '../api/client'
+import { api, apiGetCached } from '../api/client'
 import { TTL, invaliderCache } from '../api/cache'
 import type { ElementListeSouhaits } from '../api/types'
 import { formatPrix, prixEffectif } from '../api/types'
 import { useAuth } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
 import { EmptyState, ErrorState, LoadingState, PageTitle } from '../components/Ui'
+import { ProductImage } from '../components/ProductImage'
 
 export default function ListeSouhaitsPage() {
   const { estConnecte, jetonPresent, chargement: authChargement } = useAuth()
@@ -55,7 +56,14 @@ export default function ListeSouhaitsPage() {
       <div className="grid gap-4">
         {elements.map((el) => (
           <div key={el.id} className="card-hover flex items-center gap-4 p-4">
-            <img src={imageUrl(el.produit.imagePrincipale, el.produit.id)} alt={el.produit.nom} className="h-20 w-20 rounded-xl object-cover" />
+            <ProductImage
+              path={el.produit.imagePrincipale}
+              imageSrcSet={el.produit.imageSrcSet}
+              produitId={el.produit.id}
+              alt={el.produit.nom}
+              className="h-20 w-20 rounded-xl object-cover"
+              sizes="80px"
+            />
             <div className="flex-1">
               <Link to={`/produits/${el.produit.id}`} className="font-semibold hover:text-brand-600 dark:hover:text-brand-400">{el.produit.nom}</Link>
               <p className="text-price text-sm font-medium">{formatPrix(prixEffectif(el.produit))}</p>
@@ -69,6 +77,7 @@ export default function ListeSouhaitsPage() {
                   nom: el.produit.nom,
                   prix: String(prixEffectif(el.produit)),
                   image: el.produit.imagePrincipale,
+                  imageSrcSet: el.produit.imageSrcSet,
                   stock: el.produit.stock,
                 })
               }

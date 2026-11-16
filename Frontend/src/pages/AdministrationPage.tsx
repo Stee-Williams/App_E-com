@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
-import { Pencil, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Navigate, useSearchParams } from 'react-router-dom'
+import { ArrowRight, BarChart3, ClipboardList, Package, Pencil, Tags, TicketPercent, Trash2, Users } from 'lucide-react'
 import { api, apiGetCached } from '../api/client'
 import { TTL, invaliderCache, lireCache } from '../api/cache'
 import type { AdminStats, BonReduction, Categorie, Commande, PaginatedResult, PaginationMeta, Produit, Utilisateur } from '../api/types'
@@ -9,12 +9,33 @@ import { useAuth } from '../contexts/AuthContext'
 import { invaliderCacheProduits, useCategories } from '../contexts/CategoriesContext'
 import { FormField, Input, Select, Textarea } from '../components/Form'
 import { Pagination } from '../components/Pagination'
-import { ErrorState, LoadingState, PageTitle } from '../components/Ui'
+import { EmptyState, ErrorState, LoadingState, PageTitle } from '../components/Ui'
 
 const LIMIT_ADMIN = 10
 const PAGINATION_VIDE: PaginationMeta = { page: 1, limit: LIMIT_ADMIN, total: 0, pages: 1 }
 const FORM_ADMIN = 'admin-form'
 const FORM_ADMIN_LARGE = 'admin-form admin-form-lg'
+type OngletAdmin = 'stats' | 'commandes' | 'produits' | 'categories' | 'utilisateurs' | 'bons'
+type TriCommandes = 'recent' | 'ancien' | 'montant_asc' | 'montant_desc'
+type TriProduits = 'recent' | 'nom_asc' | 'nom_desc' | 'prix_asc' | 'prix_desc' | 'stock_asc' | 'stock_desc'
+type StatutCommandeFiltre = '' | 'en_attente' | 'confirmee' | 'expediee' | 'livree' | 'annulee'
+const ONGLET_ADMIN: OngletAdmin[] = ['stats', 'commandes', 'produits', 'categories', 'utilisateurs', 'bons']
+
+function estTriCommandes(valeur: string): valeur is TriCommandes {
+  return ['recent', 'ancien', 'montant_asc', 'montant_desc'].includes(valeur)
+}
+
+function estTriProduits(valeur: string): valeur is TriProduits {
+  return ['recent', 'nom_asc', 'nom_desc', 'prix_asc', 'prix_desc', 'stock_asc', 'stock_desc'].includes(valeur)
+}
+
+function estStatutCommandeFiltre(valeur: string): valeur is Exclude<StatutCommandeFiltre, ''> {
+  return ['en_attente', 'confirmee', 'expediee', 'livree', 'annulee'].includes(valeur)
+}
+
+function lireOngletAdmin(valeur: string | null): OngletAdmin {
+  return ONGLET_ADMIN.find((onglet) => onglet === valeur) ?? 'stats'
+}
 
 function SousOnglets<T extends string>({
   onglets,
@@ -26,19 +47,110 @@ function SousOnglets<T extends string>({
   onChange: (id: T) => void
 }) {
   return (
-    <div className="mb-4 flex flex-wrap gap-2 border-b border-border pb-3">
+    <div className="mb-5 inline-flex max-w-full flex-wrap gap-1 rounded-xl border border-border bg-surface-muted p-1" role="tablist">
       {onglets.map((o) => (
         <button
           key={o.id}
           type="button"
           onClick={() => onChange(o.id)}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-            actif === o.id ? 'bg-brand-600 text-white' : 'bg-surface-muted text-ink hover:bg-brand-50'
+          role="tab"
+          aria-selected={actif === o.id}
+          className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+            actif === o.id ? 'bg-brand-300 text-brand-600 shadow-sm' : 'text-muted hover:bg-surface hover:text-heading'
           }`}
         >
           {o.label}
         </button>
       ))}
+    </div>
+  )
+}
+
+function formatMois(mois: string) {
+  const [annee, numeroMois] = mois.split('-').map(Number)
+  if (!Number.isInteger(annee) || !Number.isInteger(numeroMois) || numeroMois < 1 || numeroMois > 12) {
+    return mois === 'inconnu' ? '—' : mois
+  }
+
+  return new Date(annee, numeroMois - 1, 1)
+    .toLocaleDateString('fr-FR', { month: 'short' })
+    .replace('.', '')
+}
+
+function GraphiqueCommandes({ donnees }: { donnees: AdminStats['commandesParMois'] }) {
+  const indexParMois = new Map(donnees.map(({ mois, total }) => [mois, total]))
+  const aujourdHui = new Date()
+  const recentes = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(aujourdHui.getFullYear(), aujourdHui.getMonth() - 5 + index, 1)
+    const mois = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    return { mois, total: indexParMois.get(mois) ?? 0 }
+  })
+  const maximum = Math.max(1, ...recentes.map(({ total }) => total))
+
+  const description = recentes.map(({ mois, total }) => `${formatMois(mois)} : ${total}`).join(', ')
+
+  return (
+    <div
+      role="img"
+      aria-label={`Commandes des six derniers mois : ${description}`}
+      className="grid h-56 grid-cols-3 items-end gap-4 pt-5 sm:grid-cols-6"
+    >
+      {recentes.map(({ mois, total }) => (
+        <div key={mois} className="flex h-full min-w-0 flex-col items-center justify-end gap-2">
+          <span className="text-xs font-semibold tabular-nums text-ink">{total}</span>
+          <div className="flex min-h-0 w-full flex-1 items-end justify-center">
+            <div
+              className="w-full max-w-12 rounded-t-lg bg-brand-300 transition-[height] duration-200"
+              style={{ height: `${total === 0 ? 4 : Math.max(12, (total / maximum) * 100)}%` }}
+            />
+          </div>
+          <span className="text-[11px] font-medium capitalize text-muted">{formatMois(mois)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const COULEURS_STATUT: Record<string, string> = {
+  en_attente: 'bg-amber-400',
+  confirmee: 'bg-sky-500',
+  expediee: 'bg-violet-500',
+  livree: 'bg-emerald-500',
+  annulee: 'bg-rose-500',
+}
+
+function GraphiqueStatuts({ statuts }: { statuts: AdminStats['statutsCommandes'] }) {
+  const codesStatut = new Set([...Object.keys(STATUTS_COMMANDE), ...Object.keys(statuts)])
+  const donnees = [...codesStatut]
+    .map((code) => ({ code, total: statuts[code] ?? 0 }))
+    .sort((a, b) => b.total - a.total)
+  const totalCommandes = donnees.reduce((total, ligne) => total + ligne.total, 0)
+
+  return (
+    <div className="space-y-5">
+      {donnees.map(({ code, total }) => {
+        const pourcentage = totalCommandes > 0 ? Math.round((total / totalCommandes) * 100) : 0
+        const label = STATUTS_COMMANDE[code] ?? code
+
+        return (
+          <div key={code}>
+            <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium text-ink">{label}</span>
+              <span className="shrink-0 tabular-nums text-muted">{total} · {pourcentage}%</span>
+            </div>
+            <div
+              className="h-2 overflow-hidden rounded-full bg-surface-muted"
+              role="progressbar"
+              aria-label={`${label} : ${pourcentage}%`}
+              aria-valuenow={pourcentage}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div className={`h-full rounded-full ${COULEURS_STATUT[code] ?? 'bg-brand-300'}`} style={{ width: `${pourcentage}%` }} />
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -666,8 +778,12 @@ function FormModifierCoupon({
 export default function AdministrationPage() {
   const { estAdmin, chargement: authChargement } = useAuth()
   const { ajouterCategorie: ajouterCategoriePublique } = useCategories()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const ongletDansUrl = searchParams.get('onglet')
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [commandes, setCommandes] = useState<Commande[]>([])
+  const [commandeSelectionnee, setCommandeSelectionnee] = useState<Commande | null>(null)
+  const dialogueCommandeRef = useRef<HTMLDialogElement>(null)
   const [produits, setProduits] = useState<Produit[]>([])
   const [categories, setCategories] = useState<Categorie[]>([])
   const [utilisateurs, setUtilisateurs] = useState<Utilisateur[]>([])
@@ -678,6 +794,9 @@ export default function AdministrationPage() {
   const [paginationBons, setPaginationBons] = useState<PaginationMeta>(PAGINATION_VIDE)
   const [pageCommandes, setPageCommandes] = useState(1)
   const [pageProduits, setPageProduits] = useState(1)
+  const [triCommandes, setTriCommandes] = useState<TriCommandes>('recent')
+  const [triProduits, setTriProduits] = useState<TriProduits>('recent')
+  const [statutCommandeFiltre, setStatutCommandeFiltre] = useState<StatutCommandeFiltre>('')
   const [pageUtilisateurs, setPageUtilisateurs] = useState(1)
   const [pageBons, setPageBons] = useState(1)
   const [rafraichirProduits, setRafraichirProduits] = useState(0)
@@ -685,13 +804,26 @@ export default function AdministrationPage() {
   const [chargementInitial, setChargementInitial] = useState(true)
   const [chargementOnglet, setChargementOnglet] = useState(false)
   const [erreur, setErreur] = useState('')
-  const [onglet, setOnglet] = useState<'stats' | 'commandes' | 'produits' | 'categories' | 'utilisateurs' | 'bons'>('stats')
+  const [onglet, setOnglet] = useState<OngletAdmin>(() => lireOngletAdmin(ongletDansUrl))
   const [sousOngletProduits, setSousOngletProduits] = useState<'liste' | 'nouveau'>('liste')
   const [sousOngletBons, setSousOngletBons] = useState<'liste' | 'nouveau'>('liste')
   const [sousOngletCategories, setSousOngletCategories] = useState<'liste' | 'nouveau'>('liste')
   const [produitEnEdition, setProduitEnEdition] = useState<Produit | null>(null)
   const [categorieEnEdition, setCategorieEnEdition] = useState<Categorie | null>(null)
   const [couponEnEdition, setCouponEnEdition] = useState<BonReduction | null>(null)
+
+  useEffect(() => {
+    const dialogue = dialogueCommandeRef.current
+    if (!commandeSelectionnee || !dialogue) return
+    dialogue.showModal()
+    return () => {
+      if (dialogue.open) dialogue.close()
+    }
+  }, [commandeSelectionnee])
+
+  useEffect(() => {
+    setOnglet(lireOngletAdmin(ongletDansUrl))
+  }, [ongletDansUrl])
 
   useEffect(() => {
     if (!estAdmin) return
@@ -724,7 +856,7 @@ export default function AdministrationPage() {
       setErreur('')
       try {
         if (onglet === 'commandes') {
-          const chemin = `/api/orders?page=${pageCommandes}&limit=${LIMIT_ADMIN}`
+          const chemin = `/api/orders?page=${pageCommandes}&limit=${LIMIT_ADMIN}&tri=${triCommandes}&statut=${statutCommandeFiltre}`
           const enCache = lireCache<PaginatedResult<Commande>>(`GET:${chemin}`)
           if (enCache) {
             setCommandes(enCache.items)
@@ -736,7 +868,7 @@ export default function AdministrationPage() {
           setCommandes(resultat.items)
           setPaginationCommandes(resultat.pagination)
         } else if (onglet === 'produits') {
-          const chemin = `/api/admin/products?page=${pageProduits}&limit=${LIMIT_ADMIN}`
+          const chemin = `/api/admin/products?page=${pageProduits}&limit=${LIMIT_ADMIN}&tri=${triProduits}`
           const enCache = lireCache<PaginatedResult<Produit>>(`GET:${chemin}`)
           if (enCache) {
             setProduits(enCache.items)
@@ -782,7 +914,7 @@ export default function AdministrationPage() {
     if (['commandes', 'produits', 'utilisateurs', 'bons'].includes(onglet)) {
       chargerOnglet()
     }
-  }, [estAdmin, onglet, pageCommandes, pageProduits, pageUtilisateurs, pageBons, rafraichirProduits, rafraichirBons])
+  }, [estAdmin, onglet, pageCommandes, pageProduits, triCommandes, triProduits, statutCommandeFiltre, pageUtilisateurs, pageBons, rafraichirProduits, rafraichirBons])
 
   useEffect(() => {
     setProduitEnEdition(null)
@@ -792,12 +924,14 @@ export default function AdministrationPage() {
     setSousOngletProduits('liste')
     setPageProduits(1)
     invaliderCacheProduits()
+    invaliderCache('GET:/api/admin/products')
     setRafraichirProduits((n) => n + 1)
   }
 
   const apresModificationProduit = () => {
     setProduitEnEdition(null)
     invaliderCacheProduits()
+    invaliderCache('GET:/api/admin/products')
     setRafraichirProduits((n) => n + 1)
   }
 
@@ -854,8 +988,9 @@ export default function AdministrationPage() {
     }
   }
 
-  const changerOnglet = (id: typeof onglet) => {
+  const changerOnglet = (id: OngletAdmin) => {
     setOnglet(id)
+    setSearchParams(id === 'stats' ? {} : { onglet: id }, { replace: true })
     if (id === 'commandes') setPageCommandes(1)
     if (id === 'produits') {
       setPageProduits(1)
@@ -879,83 +1014,322 @@ export default function AdministrationPage() {
     })
     invaliderCache('GET:/api/orders')
     setCommandes((prev) => prev.map((c) => (c.id === id ? { ...c, statut } : c)))
+    setCommandeSelectionnee((prev) => (prev?.id === id ? { ...prev, statut } : prev))
   }
 
   if (authChargement) return <LoadingState />
   if (!estAdmin) return <Navigate to="/connexion" replace state={{ from: '/administration' }} />
 
   const onglets = [
-    { id: 'stats' as const, label: 'Statistiques' },
-    { id: 'commandes' as const, label: 'Commandes' },
-    { id: 'produits' as const, label: 'Produits' },
-    { id: 'categories' as const, label: 'Catégories' },
-    { id: 'utilisateurs' as const, label: 'Utilisateurs' },
-    { id: 'bons' as const, label: 'Bons de réduction' },
+    { id: 'stats' as const, label: 'Vue d’ensemble', icon: BarChart3 },
+    { id: 'commandes' as const, label: 'Commandes', icon: ClipboardList },
+    { id: 'produits' as const, label: 'Produits', icon: Package },
+    { id: 'categories' as const, label: 'Catégories', icon: Tags },
+    { id: 'utilisateurs' as const, label: 'Utilisateurs', icon: Users },
+    { id: 'bons' as const, label: 'Promotions', icon: TicketPercent },
   ]
+  const titreOnglet = onglets.find((item) => item.id === onglet)?.label ?? 'Administration'
 
   return (
     <div>
-      <PageTitle title="Administration" subtitle="Tableau de bord NovaShop" />
-      {erreur && <ErrorState message={erreur} />}
+      <PageTitle title="Administration" subtitle="Pilotez les activités essentielles de votre boutique." />
       {chargementInitial && <LoadingState />}
 
       {!chargementInitial && (
-        <>
-          <div className="mb-6 flex flex-wrap gap-2">
-            {onglets.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                onClick={() => changerOnglet(o.id)}
-                className={`rounded-xl px-4 py-2 text-sm font-medium ${onglet === o.id ? 'bg-brand-600 text-white' : 'bg-surface-muted text-ink'}`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-
-          {chargementOnglet && ['commandes', 'utilisateurs'].includes(onglet) && (
-            <LoadingState />
-          )}
-
-          {!chargementOnglet && onglet === 'stats' && stats && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { label: 'Utilisateurs', value: stats.utilisateurs },
-                { label: 'Produits', value: stats.produits },
-                { label: 'Commandes', value: stats.commandes },
-                { label: 'Chiffre d\'affaires', value: formatPrix(stats.chiffreAffaires) },
-              ].map((item) => (
-                <div key={item.label} className="card-hover p-6">
-                  <p className="text-sm text-muted">{item.label}</p>
-                  <p className="mt-2 text-2xl font-bold">{item.value}</p>
-                </div>
+        <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
+          <aside className="h-fit rounded-2xl border border-border bg-surface p-3">
+            <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted">
+              Espace admin
+            </p>
+            <nav className="flex gap-1 overflow-x-auto lg:flex-col" aria-label="Sections d’administration">
+              {onglets.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => changerOnglet(o.id)}
+                  aria-pressed={onglet === o.id}
+                  className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-colors lg:w-full ${
+                    onglet === o.id
+                      ? 'bg-brand-300 text-brand-600 shadow-sm'
+                      : 'text-muted hover:bg-surface-muted hover:text-heading'
+                  }`}
+                >
+                  <o.icon size={17} aria-hidden="true" />
+                  <span>{o.label}</span>
+                </button>
               ))}
+            </nav>
+          </aside>
+
+          <section className="min-w-0">
+            <div className="mb-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted">
+                {onglet === 'stats' ? 'En un coup d’œil' : 'Gestion'}
+              </p>
+              <h2 className="mt-1 font-display text-2xl font-bold text-heading">{titreOnglet}</h2>
             </div>
-          )}
+
+            {erreur && <ErrorState message={erreur} />}
+            {chargementOnglet && ['commandes', 'utilisateurs'].includes(onglet) && <LoadingState />}
+
+            {!chargementOnglet && onglet === 'stats' && stats && (
+              <div className="space-y-5">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    { label: 'Commandes', value: stats.commandes, icon: ClipboardList },
+                    { label: 'Chiffre d’affaires', value: formatPrix(stats.chiffreAffaires), icon: BarChart3 },
+                    { label: 'Produits', value: stats.produits, icon: Package },
+                    { label: 'Utilisateurs', value: stats.utilisateurs, icon: Users },
+                  ].map((item) => {
+                    const Icon = item.icon
+
+                    return (
+                      <article key={item.label} className="rounded-2xl border border-border bg-surface p-5">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-medium text-muted">{item.label}</p>
+                          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+                            <Icon size={18} aria-hidden="true" />
+                          </span>
+                        </div>
+                        <p className="mt-4 text-2xl font-bold tabular-nums text-heading">{item.value}</p>
+                      </article>
+                    )
+                  })}
+                </div>
+
+                <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
+                  <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+                    <div className="mb-2">
+                      <h3 className="text-base font-bold text-heading">Commandes par mois</h3>
+                      <p className="mt-1 text-sm text-muted">Volume des six derniers mois</p>
+                    </div>
+                    <GraphiqueCommandes donnees={stats.commandesParMois} />
+                  </section>
+
+                  <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+                    <div className="mb-5">
+                      <h3 className="text-base font-bold text-heading">État des commandes</h3>
+                      <p className="mt-1 text-sm text-muted">Répartition par statut</p>
+                    </div>
+                    <GraphiqueStatuts statuts={stats.statutsCommandes} />
+                  </section>
+                </div>
+
+                <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+                  <div className="mb-4">
+                    <h3 className="text-base font-bold text-heading">Actions rapides</h3>
+                    <p className="mt-1 text-sm text-muted">Accédez directement aux tâches courantes.</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    <button
+                      type="button"
+                      onClick={() => changerOnglet('commandes')}
+                      className="group flex min-h-14 items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 text-left text-sm font-semibold text-ink transition-colors hover:border-brand-300 hover:bg-surface-muted"
+                    >
+                      <span className="flex items-center gap-3"><ClipboardList size={17} aria-hidden="true" />Consulter les commandes</span>
+                      <ArrowRight size={16} className="text-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        changerOnglet('produits')
+                        setSousOngletProduits('nouveau')
+                      }}
+                      className="group flex min-h-14 items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 text-left text-sm font-semibold text-ink transition-colors hover:border-brand-300 hover:bg-surface-muted"
+                    >
+                      <span className="flex items-center gap-3"><Package size={17} aria-hidden="true" />Ajouter un produit</span>
+                      <ArrowRight size={16} className="text-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        changerOnglet('bons')
+                        setSousOngletBons('nouveau')
+                      }}
+                      className="group flex min-h-14 items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 text-left text-sm font-semibold text-ink transition-colors hover:border-brand-300 hover:bg-surface-muted"
+                    >
+                      <span className="flex items-center gap-3"><TicketPercent size={17} aria-hidden="true" />Créer une promotion</span>
+                      <ArrowRight size={16} className="text-muted transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                    </button>
+                  </div>
+                </section>
+              </div>
+            )}
 
           {!chargementOnglet && onglet === 'commandes' && (
             <div className="space-y-3">
-              {commandes.map((cmd) => (
-                <div key={cmd.id} className="card-hover flex flex-wrap items-center justify-between gap-4 p-4">
-                  <div>
-                    <p className="font-semibold">{cmd.numero}</p>
-                    <p className="text-sm text-muted">{cmd.utilisateur?.prenom} {cmd.utilisateur?.nom}</p>
-                  </div>
-                  <p className="text-price font-bold">{formatPrix(cmd.total)}</p>
+              <div className="flex flex-wrap justify-end gap-3">
+                <label className="flex items-center gap-2 text-sm text-muted">
+                  État de la commande
                   <Select
-                    className="w-44"
-                    value={cmd.statut}
-                    onChange={(e) => changerStatut(cmd.id, e.target.value)}
-                    aria-label={`Statut de ${cmd.numero}`}
+                    className="w-52"
+                    value={statutCommandeFiltre}
+                    onChange={(e) => {
+                      const valeur = e.target.value
+                      if (valeur === '') {
+                        setStatutCommandeFiltre('')
+                      } else if (estStatutCommandeFiltre(valeur)) {
+                        setStatutCommandeFiltre(valeur)
+                      } else {
+                        return
+                      }
+                      setCommandeSelectionnee(null)
+                      setPageCommandes(1)
+                    }}
+                    aria-label="Filtrer par état de commande"
                   >
-                    {Object.entries(STATUTS_COMMANDE).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
+                    <option value="">Tous les états</option>
+                    {Object.entries(STATUTS_COMMANDE).map(([statut, libelle]) => (
+                      <option key={statut} value={statut}>{libelle}</option>
                     ))}
                   </Select>
-                </div>
-              ))}
+                </label>
+                <label className="flex items-center gap-2 text-sm text-muted">
+                  Trier les commandes
+                  <Select
+                    className="w-52"
+                    value={triCommandes}
+                    onChange={(e) => {
+                      if (!estTriCommandes(e.target.value)) return
+                      setTriCommandes(e.target.value)
+                      setCommandeSelectionnee(null)
+                      setPageCommandes(1)
+                    }}
+                    aria-label="Trier les commandes"
+                  >
+                    <option value="recent">Plus récentes</option>
+                    <option value="ancien">Plus anciennes</option>
+                    <option value="montant_asc">Montant croissant</option>
+                    <option value="montant_desc">Montant décroissant</option>
+                  </Select>
+                </label>
+              </div>
+              {commandes.length === 0 ? (
+                <EmptyState message="Aucune commande pour le moment." />
+              ) : (
+                commandes.map((cmd) => (
+                  <div key={cmd.id} className="card-hover flex flex-wrap items-center justify-between gap-4 p-4">
+                    <button
+                      type="button"
+                      onClick={() => setCommandeSelectionnee(cmd)}
+                      className="min-w-[12rem] flex-1 text-left"
+                      aria-label={`Afficher les détails de la commande ${cmd.numero}`}
+                    >
+                      <span className="block font-semibold text-heading">{cmd.numero}</span>
+                      <span className="mt-1 block text-sm text-muted">
+                        {cmd.utilisateur
+                          ? `${cmd.utilisateur.prenom} ${cmd.utilisateur.nom}`
+                          : [cmd.prenomInvite, cmd.nomInvite].filter(Boolean).join(' ') || cmd.emailInvite || 'Commande invitée'}
+                      </span>
+                      <span className="mt-1 block text-price text-sm font-bold">{formatPrix(cmd.total)}</span>
+                    </button>
+                    <Select
+                      className="w-44"
+                      value={cmd.statut}
+                      onChange={(e) => changerStatut(cmd.id, e.target.value)}
+                      aria-label={`Statut de ${cmd.numero}`}
+                    >
+                      {Object.entries(STATUTS_COMMANDE).map(([k, v]) => (
+                        <option key={k} value={k}>{v}</option>
+                      ))}
+                    </Select>
+                  </div>
+                ))
+              )}
               <Pagination pagination={paginationCommandes} onPageChange={setPageCommandes} />
+              {commandeSelectionnee && (
+                <dialog
+                  ref={dialogueCommandeRef}
+                  aria-labelledby="titre-details-commande"
+                  onClose={() => setCommandeSelectionnee(null)}
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) dialogueCommandeRef.current?.close()
+                  }}
+                  className="fixed inset-0 m-auto max-h-[90vh] w-[min(42rem,calc(100%-2rem))] overflow-y-auto rounded-2xl border border-border bg-surface p-0 text-ink shadow-2xl backdrop:bg-slate-950/50"
+                >
+                  <div className="flex items-start justify-between gap-4 border-b border-border p-5 sm:p-6">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted">Détails de la commande</p>
+                      <h3 id="titre-details-commande" className="mt-1 text-xl font-bold text-heading">{commandeSelectionnee.numero}</h3>
+                    </div>
+                    <button type="button" onClick={() => dialogueCommandeRef.current?.close()} className="btn-secondary px-3 py-2 text-sm">
+                      Fermer
+                    </button>
+                  </div>
+                  <div className="space-y-5 p-5 sm:p-6">
+                    <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <dt className="text-muted">Client</dt>
+                        <dd className="font-medium text-heading">
+                          {commandeSelectionnee.utilisateur
+                            ? `${commandeSelectionnee.utilisateur.prenom} ${commandeSelectionnee.utilisateur.nom}`
+                            : [commandeSelectionnee.prenomInvite, commandeSelectionnee.nomInvite].filter(Boolean).join(' ') || 'Client invité'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted">E-mail</dt>
+                        <dd className="break-all font-medium text-heading">
+                          {commandeSelectionnee.utilisateur?.email ?? commandeSelectionnee.emailInvite ?? 'Non renseigné'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted">Téléphone</dt>
+                        <dd className="font-medium text-heading">
+                          {commandeSelectionnee.utilisateur?.telephone ?? commandeSelectionnee.telephoneInvite ?? 'Non renseigné'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted">État</dt>
+                        <dd className="font-medium text-heading">{STATUTS_COMMANDE[commandeSelectionnee.statut] ?? commandeSelectionnee.statut}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted">Date</dt>
+                        <dd className="font-medium text-heading">
+                          {commandeSelectionnee.dateCreation
+                            ? new Date(commandeSelectionnee.dateCreation).toLocaleString('fr-FR')
+                            : 'Non renseignée'}
+                        </dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-muted">Adresse de livraison</dt>
+                        <dd className="font-medium text-heading">
+                          {commandeSelectionnee.adresseLivraisonComplete
+                            || [commandeSelectionnee.adresseLivraison?.rue, commandeSelectionnee.adresseLivraison?.ville].filter(Boolean).join(', ')
+                            || 'Non renseignée'}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <section>
+                      <h4 className="mb-2 font-semibold text-heading">Articles commandés</h4>
+                      {commandeSelectionnee.lignes.length === 0 ? (
+                        <p className="text-sm text-muted">Aucun détail d’article disponible.</p>
+                      ) : (
+                        <ul className="divide-y divide-border rounded-xl border border-border">
+                          {commandeSelectionnee.lignes.map((ligne) => (
+                            <li key={ligne.id} className="flex items-start justify-between gap-4 p-3 text-sm">
+                              <div>
+                                <p className="font-medium text-heading">{ligne.produit?.nom ?? 'Article indisponible'}</p>
+                                {ligne.libelleVariante && <p className="text-xs text-muted">{ligne.libelleVariante}</p>}
+                                <p className="text-xs text-muted">{ligne.quantite} × {formatPrix(ligne.prixUnitaire)}</p>
+                              </div>
+                              <p className="shrink-0 font-semibold">{formatPrix(ligne.sousTotal ?? Number(ligne.prixUnitaire) * ligne.quantite)}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+
+                    <dl className="ml-auto grid max-w-xs grid-cols-2 gap-x-5 gap-y-2 text-sm">
+                      <dt className="text-muted">Sous-total</dt><dd className="text-right">{formatPrix(commandeSelectionnee.sousTotal)}</dd>
+                      <dt className="text-muted">Livraison</dt><dd className="text-right">{formatPrix(commandeSelectionnee.fraisLivraison)}</dd>
+                      <dt className="text-muted">Réduction</dt><dd className="text-right">− {formatPrix(commandeSelectionnee.reduction)}</dd>
+                      <dt className="border-t border-border pt-2 font-bold text-heading">Total</dt>
+                      <dd className="border-t border-border pt-2 text-right font-bold text-heading">{formatPrix(commandeSelectionnee.total)}</dd>
+                    </dl>
+                  </div>
+                </dialog>
+              )}
             </div>
           )}
 
@@ -987,6 +1361,29 @@ export default function AdministrationPage() {
                   {chargementOnglet && <LoadingState />}
                   {!chargementOnglet && (
                     <>
+                      <div className="mb-3 flex justify-end">
+                        <label className="flex items-center gap-2 text-sm text-muted">
+                          Trier les produits
+                          <Select
+                            className="w-52"
+                            value={triProduits}
+                            onChange={(e) => {
+                              if (!estTriProduits(e.target.value)) return
+                              setTriProduits(e.target.value)
+                              setPageProduits(1)
+                            }}
+                            aria-label="Trier les produits"
+                          >
+                            <option value="recent">Plus récents</option>
+                            <option value="nom_asc">Nom A–Z</option>
+                            <option value="nom_desc">Nom Z–A</option>
+                            <option value="prix_asc">Prix croissant</option>
+                            <option value="prix_desc">Prix décroissant</option>
+                            <option value="stock_asc">Stock croissant</option>
+                            <option value="stock_desc">Stock décroissant</option>
+                          </Select>
+                        </label>
+                      </div>
                       <div className="card-hover overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead className="bg-surface-muted">
@@ -1000,6 +1397,11 @@ export default function AdministrationPage() {
                             </tr>
                           </thead>
                           <tbody>
+                            {produits.length === 0 && (
+                              <tr>
+                                <td colSpan={6} className="p-8 text-center text-sm text-muted">Aucun produit trouvé.</td>
+                              </tr>
+                            )}
                             {produits.map((p) => (
                               <tr
                                 key={p.id}
@@ -1064,6 +1466,7 @@ export default function AdministrationPage() {
                       onModifie={apresModificationCategorie}
                     />
                   )}
+                  {categories.length === 0 && <EmptyState message="Aucune catégorie. Créez-en une pour organiser vos produits." />}
                   {categories.map((c) => (
                     <div key={c.id} className="card-hover flex flex-wrap items-start justify-between gap-3 p-4">
                       <div>
@@ -1102,6 +1505,7 @@ export default function AdministrationPage() {
 
           {!chargementOnglet && onglet === 'utilisateurs' && (
             <div className="space-y-2">
+              {utilisateurs.length === 0 && <EmptyState message="Aucun utilisateur trouvé." />}
               {utilisateurs.map((u) => (
                 <div key={u.id} className="card-hover flex justify-between p-4">
                   <div>
@@ -1139,6 +1543,7 @@ export default function AdministrationPage() {
                         />
                       )}
                       <div className="space-y-3">
+                        {bons.length === 0 && <EmptyState message="Aucune promotion créée pour le moment." />}
                         {bons.map((b) => (
                           <div key={b.id} className="card-hover flex flex-wrap items-start justify-between gap-4 p-4">
                             <div>
@@ -1189,7 +1594,8 @@ export default function AdministrationPage() {
               )}
             </div>
           )}
-        </>
+          </section>
+        </div>
       )}
     </div>
   )

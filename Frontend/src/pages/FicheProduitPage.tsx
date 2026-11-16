@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { GitCompare, ShoppingCart, Star } from 'lucide-react'
-import { api, apiGet, apiGetCached, imageUrl } from '../api/client'
+import { api, apiGet, apiGetCached } from '../api/client'
 import { TTL, invaliderCache } from '../api/cache'
 import type { Avis, Produit, VarianteProduit } from '../api/types'
 import { formatPrix, prixEffectif } from '../api/types'
 import { FormField, Select, Textarea } from '../components/Form'
 import { ProductCard } from '../components/ProductCard'
+import { ProductImage } from '../components/ProductImage'
 import { useAuth } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
 import { useCompare } from '../contexts/CompareContext'
@@ -79,6 +80,7 @@ export default function FicheProduitPage() {
       nom: produit.nom,
       prix: String(prix),
       image: produit.imagePrincipale,
+      imageSrcSet: produit.imageSrcSet,
       stock: stockDispo,
       quantite,
     })
@@ -102,26 +104,39 @@ export default function FicheProduitPage() {
 
   return (
     <div>
-      <Link to="/produits" className="link-accent text-sm">← Retour au catalogue</Link>
+      <Link to="/produits" className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted transition hover:text-heading">← Retour au catalogue</Link>
 
-      <div className="mt-6 grid gap-10 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-3xl bg-surface-inset">
-          <img src={imageUrl(produit.imagePrincipale, produit.id)} alt={produit.nom} className="aspect-square w-full object-cover" />
+      <div className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:gap-14">
+        <div className="relative overflow-hidden rounded-xl bg-surface-muted">
+          <span className="absolute left-4 top-4 z-10 rounded-full bg-brand-300 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-brand-600">
+            Nova · sélection
+          </span>
+          <ProductImage
+            path={produit.imagePrincipale}
+            imageSrcSet={produit.imageSrcSet}
+            produitId={produit.id}
+            alt={produit.nom}
+            className="aspect-square w-full object-cover"
+            sizes="(max-width: 1024px) 100vw, 55vw"
+          />
         </div>
 
-        <div>
+        <div className="py-2 lg:py-5">
           {produit.categorie && (
-            <p className="text-sm font-medium text-brand-600">{produit.categorie.nom}</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">{produit.categorie.nom}</p>
           )}
-          <h1 className="mt-2 text-3xl font-bold">{produit.nom}</h1>
+          <h1 className="mt-2 font-display text-5xl font-black uppercase leading-[0.92] tracking-tight sm:text-6xl">{produit.nom}</h1>
           {produit.noteMoyenne != null && (
-            <p className="mt-2 flex items-center gap-1 text-amber-500">
-              <Star size={16} fill="currentColor" /> {produit.noteMoyenne}/5 ({avis.length} avis)
+            <p className="mt-4 flex items-center gap-2 text-xs font-semibold text-muted">
+              <Star size={15} fill="currentColor" className="text-brand-600" /> <span className="text-heading">{produit.noteMoyenne}/5</span> · {avis.length} avis
             </p>
           )}
-          <p className="mt-4 text-3xl font-bold text-price">{formatPrix(prix)}</p>
-          <p className="mt-4 text-muted">{produit.description}</p>
-          <p className="mt-2 text-sm text-muted">Stock : {stockDispo} disponible(s)</p>
+          <p className="mt-5 font-display text-4xl font-bold text-price">{formatPrix(prix)}</p>
+          <p className="mt-4 max-w-[58ch] text-sm leading-7 text-muted">{produit.description}</p>
+          <p className="mt-4 inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
+            <span className={`size-2 rounded-full ${stockDispo > 0 ? 'bg-brand-300' : 'bg-red-500'}`} />
+            {stockDispo > 0 ? `${stockDispo} disponible(s)` : 'Rupture de stock'}
+          </p>
 
           {aVariantes && produit.variantes && (
             <FormField label="Variante (taille / couleur)" className="mt-4">
@@ -144,7 +159,7 @@ export default function FicheProduitPage() {
             </FormField>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center gap-4">
+          <div className="mt-7 flex flex-wrap items-center gap-3">
             <input
               type="number"
               min={1}
@@ -154,13 +169,13 @@ export default function FicheProduitPage() {
               className="input-field w-24"
               aria-label="Quantité"
             />
-            <button type="button" onClick={ajouterAuPanier} className="btn-primary" disabled={stockDispo <= 0}>
+            <button type="button" onClick={ajouterAuPanier} className="btn-primary min-h-11 flex-1 uppercase tracking-[0.08em] sm:flex-none" disabled={stockDispo <= 0}>
               <ShoppingCart size={16} /> Ajouter au panier
             </button>
             <button
               type="button"
               onClick={() => ajouterComparer(produit)}
-              className="btn-secondary"
+              className="btn-secondary min-h-11"
               disabled={contient(produit.id) || plein}
               title={plein ? 'Maximum 4 produits' : contient(produit.id) ? 'Déjà dans le comparateur' : 'Comparer'}
             >
@@ -172,7 +187,7 @@ export default function FicheProduitPage() {
 
       {similaires.length > 0 && (
         <section className="mt-16">
-          <h2 className="text-xl font-bold">Produits similaires</h2>
+          <h2 className="font-display text-4xl font-black uppercase">Tu pourrais aussi aimer</h2>
           <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {similaires.map((p) => (
               <ProductCard key={p.id} produit={p} />
@@ -182,7 +197,7 @@ export default function FicheProduitPage() {
       )}
 
       <section className="mt-16">
-        <h2 className="text-xl font-bold">Avis clients</h2>
+        <h2 className="font-display text-4xl font-black uppercase">Avis clients</h2>
         <div className="mt-4 space-y-4">
           {avis.length === 0 && <p className="text-muted">Aucun avis pour le moment.</p>}
           {avis.map((a) => (
